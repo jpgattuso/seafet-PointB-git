@@ -1,0 +1,132 @@
+---
+title: "Yann_Bozec_collaboration"
+author: "Jean-Pierre Gattuso and Samir Alliouane"
+date: '`r format(Sys.Date(), "%d %B %Y")`'
+output:
+  rmarkdown::html_document:
+    theme: paper
+    number_sections: false
+---
+#{.tabset .tabset-fade .tabset-pills}
+
+## Introduction
+This document was done following the email sent by Yann Bozec (yann.bozec@sb-roscoff.fr) to Frederic Gazeau on 12 November 2018. The request is to use our high frequency pH (seaFET) data at Point B and compare them with pCO2 data from Occidental Manche. The principle will be to convert pH to pCO2, thanks to seacarb package and discrete data (salinity, alkalinity and nutrients).
+
+## Data informations
+
+### Nutrients
+Last nutrients data, silicate (Si_ptb) and phosphate (P04_ptb), available: 2018-05-02. Recent samples have not been analysed yet.
+
+### Total alkalinity
+Last alkalinity data (at_ptb) available: 2018-06-04. Recent samples have not been analysed yet.
+
+### Salinity
+The salinity is up to date. 
+
+### pH seaFET
+Last pH data available: 2018-04-21. After this date, sensor was sent to calibration/fixing.
+pH data (pHT_ sfint) have been calibrated against reference samples measured with the spectrophotometric method.
+
+### *p*CO~2~
+*p*CO~2~ have been calculated with the function "carb" in "seacarb" package (R project). Salinity, total alkalinity, silicate and phosphate concentrations from weekly Point B sampling have been put as inputs for the function. 
+These unique weekly data, mostly sampled on tuesdays, have been spread around the sampling date until the middle time which separate them from the next weekly sampling. 
+
+### Conclusion
+According to the following points, we will give an entire dataset until last seaFET pH measurement on the 2018-04-21. Data file is data_bozec.csv. 
+
+
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+library(ggplot2)
+library(seacarb) 
+library(reshape2)
+library(plyr)
+library(tidyr)
+library("lmodel2") # model II regression
+library("dplyr", warn.conflicts = FALSE)
+library(lubridate)
+library(knitr)
+#opts_knit$set(root.dir = '../')
+library(scales)
+library(dygraphs)
+library(xts)
+```
+
+```{r read data, include=FALSE}
+
+all <- read.table("../pb_data/all_data/continuous_discrete.csv", header=T, sep=",", dec=".", as.is=T)
+all$date <- ymd_hms(all$date)
+all <- all%>%
+  dplyr::filter(date <= "2018-04-22")%>%
+  dplyr::select(date, T_seaF, pHT_sfint, S_ptb, at_ptb, PO4_ptb, Si_ptb)
+
+carb <- carb(8, all$pHT_sfint, all$at_ptb*0.000001, S=all$S_ptb, T=all$T_seaF, P=0, Pt=all$PO4_ptb*1e-6, Sit=all$Si_ptb*1e-6 ,k1k2="x", kf="x", ks="d", pHscale="T", b="l10")
+all$pCO2_calc<- carb$pCO2
+
+write.table(all,"../pb_output/data_bozec.csv",row.names = FALSE, sep=",", dec=".")
+
+```
+
+## Plots
+```{r plots, echo=FALSE, warning=FALSE, message=FALSE}
+# pH seaFET
+pH_xts <- dplyr::select(all,date, pHT_sfint)
+pH_xts <- as.xts(pH_xts, order.by=pH_xts$date)
+dygraph(pH_xts, main="pH calibrated", ylab="pH in total scale") %>%
+  dySeries("pHT_sfint", color = "blue", strokeWidth = 0, label = "pH") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+# pCO2
+pco2_xts <- dplyr::select(all,date, pCO2_calc)
+pco2_xts <- as.xts(pco2_xts, order.by=pco2_xts$date)
+dygraph(pco2_xts, main="Calculated pCO2", ylab="Calculated pCO2 in μatm") %>%
+  dySeries("pCO2_calc", color = "blue", strokeWidth = 0, label = "Calculated pCO2") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+# TA
+ta_xts <- dplyr::select(all,date, at_ptb)
+ta_xts <- as.xts(ta_xts, order.by=ta_xts$date)
+dygraph(ta_xts, main="Total alkalinity", ylab="Total alkalinity in µmoles/kg") %>%
+  dySeries("at_ptb", color = "blue", strokeWidth = 0, label = "pH") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+# Temp
+temp_xts <- dplyr::select(all,date, T_seaF)
+temp_xts <- as.xts(temp_xts, order.by=temp_xts$date)
+dygraph(temp_xts, main="Temperature", ylab="Temperature in °C") %>%
+  dySeries("T_seaF", color = "blue", strokeWidth = 0, label = "seaFET Temperature") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+# Sal
+sal_xts <- dplyr::select(all,date, S_ptb)
+sal_xts <- as.xts(sal_xts, order.by=sal_xts$date)
+dygraph(sal_xts, main="Salinity", ylab="Salinity in psu") %>%
+  dySeries("S_ptb", color = "blue", strokeWidth = 0, label = "Salinity") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+# Nutrients
+nut_xts <- dplyr::select(all,date, PO4_ptb, Si_ptb)
+nut_xts <- as.xts(nut_xts, order.by=nut_xts$date)
+dygraph(nut_xts, main="Nutrients", ylab="Nutrients in mol/kg") %>%
+  dySeries("PO4_ptb", color = "blue", strokeWidth = 0, label = "Phosphate") %>%
+   dySeries("Si_ptb", color = "green", strokeWidth = 0, label = "Silicate") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+
+```
+
+##Acknowlegments
+
+**The sailors:** J.-Y Carval, J.-L Prevost, P. Cohen. 
+
+**Point B team:** L. Mousseau, F. Petit, O. Passafiume, M. Durozier, A.-M. Corre, H. De Lary. 
+
+**EOL buoy engineer:** J.-M Grisoni.
+
+**Divers:** G. De Liège, D. Luquet, S. Alliouane
