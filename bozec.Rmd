@@ -7,7 +7,30 @@ output:
     theme: paper
     number_sections: false
 ---
+
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+library(ggplot2)
+library(seacarb) 
+library(reshape2)
+library(plyr)
+library(tidyr)
+library("lmodel2") # model II regression
+library("dplyr", warn.conflicts = FALSE)
+library(lubridate)
+library(knitr)
+#opts_knit$set(root.dir = '../')
+library(scales)
+library(dygraphs)
+library(xts)
+#define who is the user and define path
+if (Sys.getenv("LOGNAME") == "gattuso") path = "../../pCloud\ Sync/Documents/experiments/exp166_seafet/1b_seafet_pointB/"
+if (Sys.getenv("LOGNAME") == "samir") path = "../../pCloud\ Sync/exp166_seafet/1b_seafet_pointB/"
+
+```
+
 #{.tabset .tabset-fade .tabset-pills}
+
 
 ## Introduction
 This document was done following the email sent by Yann Bozec (yann.bozec@sb-roscoff.fr) to Frederic Gazeau on 12 November 2018. The request is to use our high frequency pH (seaFET) data at Point B and compare them with pCO2 data from Occidental Manche. The principle will be to convert pH to pCO2, thanks to seacarb package and discrete data (salinity, alkalinity and nutrients).
@@ -35,26 +58,11 @@ These unique weekly data, mostly sampled on tuesdays, have been spread around th
 According to the following points, we will give an entire dataset until last seaFET pH measurement on the 2018-04-21. Data file is data_bozec.csv. 
 
 
-```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
-Sys.setlocale("LC_ALL", "en_US.UTF-8")
-library(ggplot2)
-library(seacarb) 
-library(reshape2)
-library(plyr)
-library(tidyr)
-library("lmodel2") # model II regression
-library("dplyr", warn.conflicts = FALSE)
-library(lubridate)
-library(knitr)
-#opts_knit$set(root.dir = '../')
-library(scales)
-library(dygraphs)
-library(xts)
-```
+
 
 ```{r read data, include=FALSE}
 
-all <- read.table("../pb_data/all_data/continuous_discrete.csv", header=T, sep=",", dec=".", as.is=T)
+all <- read.table(paste0(path, "./pb_data/all_data/continuous_discrete.csv"), header=T, sep=",", dec=".", as.is=T)
 all$date <- ymd_hms(all$date)
 all <- all%>%
   dplyr::filter(date <= "2018-04-22")%>%
@@ -63,7 +71,7 @@ all <- all%>%
 carb <- carb(8, all$pHT_sfint, all$at_ptb*0.000001, S=all$S_ptb, T=all$T_seaF, P=0, Pt=all$PO4_ptb*1e-6, Sit=all$Si_ptb*1e-6 ,k1k2="x", kf="x", ks="d", pHscale="T", b="l10")
 all$pCO2_calc<- carb$pCO2
 
-write.table(all,"../pb_output/data_bozec.csv",row.names = FALSE, sep=",", dec=".")
+write.table(all,paste0(path,"pb_output/data_bozec.csv"),row.names = FALSE, sep=",", dec=".")
 
 ```
 
