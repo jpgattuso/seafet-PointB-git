@@ -1,10 +1,9 @@
 ---
-title: "Yann_Bozec_collaboration"
+title: "Data processing for Yann Bozec"
 author: "Jean-Pierre Gattuso and Samir Alliouane"
 date: '`r format(Sys.Date(), "%d %B %Y")`'
 output:
   rmarkdown::html_document:
-    theme: paper
     number_sections: false
 ---
 
@@ -29,16 +28,13 @@ if (Sys.getenv("LOGNAME") == "samir") path = "../../pCloud\ Sync/exp166_seafet/1
 
 ```
 
-#{.tabset .tabset-fade .tabset-pills}
+# Introduction
+This document and data file were generated for Yann Bozec (yann.bozec@sb-roscoff.fr). The request was to use our high frequency pH (seaFET) data at Point B and compare them with pCO2 data from the Channel. Here we calculate pCO2, using high frequency measurements of pH and temperature and discrete measurements (SOMLIT) of salinity, total alkalinity and nutrients.
 
-
-## Introduction
-This document was done following the email sent by Yann Bozec (yann.bozec@sb-roscoff.fr) to Frederic Gazeau on 12 November 2018. The request is to use our high frequency pH (seaFET) data at Point B and compare them with pCO2 data from Occidental Manche. The principle will be to convert pH to pCO2, thanks to seacarb package and discrete data (salinity, alkalinity and nutrients).
-
-## Data informations
+# Information on data 
 
 ### Nutrients
-Last nutrients data, silicate (Si_ptb) and phosphate (P04_ptb), available: 2018-05-02. Recent samples have not been analysed yet.
+Last silicate (Si_ptb) and phosphate (P04_ptb) data available: 2018-05-02. More recent samples have not been analysed yet.
 
 ### Total alkalinity
 Last alkalinity data (at_ptb) available: 2018-06-04. Recent samples have not been analysed yet.
@@ -47,18 +43,15 @@ Last alkalinity data (at_ptb) available: 2018-06-04. Recent samples have not bee
 The salinity is up to date. 
 
 ### pH seaFET
-Last pH data available: 2018-04-21. After this date, sensor was sent to calibration/fixing.
+Last pH data available: 2018-04-21. After this date, the instrument was sent to seabird for maintenance.
+
 pH data (pHT_ sfint) have been calibrated against reference samples measured with the spectrophotometric method.
 
 ### *p*CO~2~
-*p*CO~2~ have been calculated with the function "carb" in "seacarb" package (R project). Salinity, total alkalinity, silicate and phosphate concentrations from weekly Point B sampling have been put as inputs for the function. 
-These unique weekly data, mostly sampled on tuesdays, have been spread around the sampling date until the middle time which separate them from the next weekly sampling. 
+*p*CO~2~ has been calculated with the carb function of the seacarb R package (3.2.8). Salinity, total alkalinity, silicate and phosphate concentrations are from weekly Point B sampling. Default constants were used.  These unique weekly data, mostly sampled on tuesdays, have been spread around the sampling date until the middle time which separate them from the next weekly sampling.
 
-### Conclusion
-According to the following points, we will give an entire dataset until last seaFET pH measurement on the 2018-04-21. Data file is data_bozec.csv. 
-
-
-
+# Conclusion
+Data file is data_bozec.csv. 
 
 ```{r read data, include=FALSE}
 
@@ -75,7 +68,7 @@ write.table(all,paste0(path,"pb_output/data_bozec.csv"),row.names = FALSE, sep="
 
 ```
 
-## Plots
+# Plots
 ```{r plots, echo=FALSE, warning=FALSE, message=FALSE}
 # pH seaFET
 pH_xts <- dplyr::select(all,date, pHT_sfint)
@@ -129,7 +122,7 @@ dygraph(nut_xts, main="Nutrients", ylab="Nutrients in mol/kg") %>%
 
 ```
 
-##Acknowlegments
+#Acknowlegments
 
 **The sailors:** J.-Y Carval, J.-L Prevost, P. Cohen. 
 
@@ -137,4 +130,4 @@ dygraph(nut_xts, main="Nutrients", ylab="Nutrients in mol/kg") %>%
 
 **EOL buoy engineer:** J.-M Grisoni.
 
-**Divers:** G. De Liège, D. Luquet, S. Alliouane
+**Divers:** G. De Liège and D. Luquet
