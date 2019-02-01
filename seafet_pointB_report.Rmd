@@ -8,7 +8,7 @@ output:
     number_sections: false
 ---
 
-```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE, include =FALSE}
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 library(ggplot2)
 library(seacarb) 
@@ -147,13 +147,13 @@ mytheme <- theme_bw() +
 #---------- Lecture des fichiers "Raw_seaFET..." un par un via la boucle.
 # Dataframe "TAB" is done.
 
-file_list <- list.files(path  = "./../pb_data/Individual_data/", pattern = "Raw_seaFET2.*.csv")
+file_list <- list.files(path  = "../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/", pattern = "Raw_seaFET2.*.csv")
 
 if (length(file_list) == 0) {stop()} # script does not run if there is no data file to read
 ii <- 0
 for (file in file_list){ 
   ii <- ii + 1
-  tmp <- read.table(paste("./../pb_data/Individual_data/", file, sep = ""), header = F, dec = ".", as.is = T, sep = ";", skip = 1, fill = TRUE)
+  tmp <- read.table(paste("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/", file, sep = ""), header = F, dec = ".", as.is = T, sep = ";", skip = 1, fill = TRUE)
   if (ii == 1) {z <- tmp} else {z <- rbind(z, tmp)}
 }
 
@@ -171,8 +171,8 @@ colnames(z)  <- c("date","pHINT","pHEXT","T_seaF","Eint","Eext","voltSupply", "h
 
 # z  = old file (seaFET_ptb.Rdata) + new (file_list)
 # Add to the existing file
-if (file.exists("../pb_data/all_data/seaFET_ptb.Rdata") == TRUE) {
-  load("../pb_data/all_data/seaFET_ptb.Rdata")
+if (file.exists("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/seaFET_ptb.Rdata") == TRUE) {
+  load("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/seaFET_ptb.Rdata")
   z_old <- as_tibble(TAB)
 }
 
@@ -211,7 +211,7 @@ TAB<- TAB %>%
 
 #---------- ouvrir données POINT B Data_DIC
 # les heures des donnees ptB ont ete ajoutées au fichier "y"
-y <- read.table("../pb_data/all_data/Data_DIC.csv", header=T, sep=";", dec=".", as.is=T)
+y <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
 #y <- read.table("../../../shared_data_dic/Data_DIC.csv", header=T, sep=";", dec=".", as.is=T)
 #y$date <- paste(y$Date, "08:00:08", sep=" ")
 y$date<- dmy(y$sampling_date, tz="UTC")
@@ -388,7 +388,7 @@ TAB$at_ptb[is.na(TAB$at_ptb)] <- mean(TAB$at_ptb, na.rm= TRUE)
 TAB$dic_ptb[is.na(TAB$dic_ptb)] <- mean(TAB$dic_ptb, na.rm= TRUE)
 TAB$datetime <- TAB$date
 #------------------ SAVING DATA dans all_data/
-write.table(TAB,"../pb_data/all_data/time-series.csv",row.names = FALSE, sep=",", dec=".")
+write.table(TAB,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/time-series.csv",row.names = FALSE, sep=",", dec=".")
 ```
 
 <style type="text/css">
@@ -402,7 +402,7 @@ body{ /* Normal  */
 ## Introduction
 To monitor the evolution of pH in the northwestern Mediterranean sea, a seaFET sensor has been installed on the EOL buoy in the Bay of Villefranche-Sur-Mer (France) to get continous measurements of pH in addition to the discrete measurements of $A_\mathrm{T}$ and $C_\mathrm{T}$ (until October 2015) and spectrophotometric pH.
 
-![ ](../../3_Images_seafet/2017-01-10_seafet_DeLiege/DSC01795.jpg){width=250px}
+![ ](../../pCloud Sync/exp166_seafet/3_Images_seafet/2017-01-10_seafet_DeLiege/DSC01795.jpg){width=250px}
 
 ##Material and methods
 
@@ -609,7 +609,7 @@ To calibrate the seaFET pH we use the approach described by Bresnahan et al. (20
 # Salinity from ptB is added to data
 # dataframe "discrete" is made.
 # dataframe "TAB" is at the end of the chunk updated with discrete data (TAB = TAB + discrete)
-x <- read.table("../../8_Intercomparaison/spectro.csv", header=T, sep=",", dec=".", as.is=T)
+x <- read.table("../../pCloud Sync/exp166_seafet/8_Intercomparaison/spectro.csv", header=T, sep=",", dec=".", as.is=T)
 x$date<- ymd_hms(x$date, tz="UTC")
 x$date_measure <- ymd(x$date_measure, tz="UTC")
 #   Moyennes des 3 parametres en fonction de la profondeur et du jour.
@@ -663,12 +663,12 @@ discrete <- dplyr::arrange(discrete, datetime)
 discrete$datetime <- ymd_hms(discrete$datetime, tz = "UTC")
 #discrete <- discrete[,c(1,3,4,17,19,7,8,10,11,9,15,16,18,6,14,2,5,12,13)]
 
-write.table(discrete,"../../8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
+write.table(discrete,"../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
 
 # add discrete data to the all data serie
 TAB <- left_join(TAB,discrete%>%select(date,pHcalc_ptB,pHspec_Tptb), by="date")
 #TAB <- left_join(TAB,discrete[,c(1,17:18)], by="date")
-write.table(TAB,"../pb_data/all_data/ALLdata_discrete_continuous.csv",row.names=FALSE,sep=",",dec=".")
+write.table(TAB,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/ALLdata_discrete_continuous.csv",row.names=FALSE,sep=",",dec=".")
 
 ```
 
@@ -677,7 +677,7 @@ write.table(TAB,"../pb_data/all_data/ALLdata_discrete_continuous.csv",row.names=
 Graphic below shows raw pH and voltages (V) data for internal and external reference electrodes and temperature from the sensor. It also shows temperature from the sensor. 
 ```{r Plot continuous measurements, echo=FALSE, warning=FALSE, message=FALSE, out.width='100%'}
  
-TAB <- read.table("../pb_data/all_data/ALLdata_discrete_continuous.csv", header=T, sep=",", dec=".", as.is=T)
+TAB <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/ALLdata_discrete_continuous.csv", header=T, sep=",", dec=".", as.is=T)
 TAB$date <- ymd_hms(TAB$date, tz = "UTC")
 
 # 0
@@ -705,7 +705,7 @@ time_series_cont <- ggplot(TABm_hole_cont) + geom_point(aes(x=date, y=value, col
   facet_grid(variable~., scales="free_y") + 
   theme_bw()+ xlab("Time")+ylab("")+
   scale_colour_discrete(guide="none")
-ggsave("../pb_figures/all_figures/time_series_cont.png",time_series_cont,height =18, units="cm")
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/time_series_cont.png",time_series_cont,height =18, units="cm")
 
 print(time_series_cont)
 
@@ -717,7 +717,7 @@ time_series_dis <- ggplot(TABm_hole_dis) + geom_point(aes(x=date, y=value, color
   facet_grid(variable~., scales="free_y") + 
   theme_bw()+ xlab("Time")+ylab("")+
   scale_colour_discrete(guide="none")
-ggsave("../pb_figures/all_figures/time_series_dis.png",time_series_dis,height =18, units="cm")
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/time_series_dis.png",time_series_dis,height =18, units="cm")
 ```
 
 ###**Discrete sampling**
@@ -737,7 +737,7 @@ dplyr::filter(date <= as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date >= as.PO
 #kable(discrete[,c(1:5,10,6:9,11:15)], digits = 4, longtable= TRUE)
 
 kable(discrete[,c(1,17, 10:15 )], digits=5)
-write.table(discrete,"./../../8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
+write.table(discrete,"../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
 ```
 
 ###**seaFET T° vs Point B T°**
@@ -784,7 +784,7 @@ We do not make any trend correction as advised by Yui (see above). In conclusion
 # on supprime toutes les variables SAUF entre ''
 #ls()[!(ls() %in% c('mytheme','pHCalib','pHCalc','ggreg2'))] 
 
-discrete_ptb <- read.table("../../8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",header=T,sep=",",dec=".")
+discrete_ptb <- read.table("../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",header=T,sep=",",dec=".")
 discrete_ptb$date <- ymd_hms(discrete_ptb$date)
 # Mettre le numero de déploiement 
 #discrete_ptb <- left_join(discrete_ptb, TAB[,c(1,9)], by="date" )
@@ -814,7 +814,7 @@ p_calib_ptb <- ggplot(kk) + geom_point(aes(x=deployment, y=value, color=variable
   facet_grid(variable~., scales="free_y") + theme_bw() +
   scale_colour_discrete(guide="none")
 
-ggsave("../pb_figures/calib_E0ext25_E0int25_ptb.png",p_calib_ptb,height =20, units="cm")
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/calib_E0ext25_E0int25_ptb.png",p_calib_ptb,height =20, units="cm")
 
 # Add the mean E0 to discrete sample per deployment
 discrete_ptb1  <- discrete_ptb  %>% 
@@ -834,10 +834,10 @@ pHT_calib_ptb_discrete$date <- discrete_ptb1$date
 #discrete_ptb1$pHT_sfext <- pHT_calib_ptb_discrete$pHT_sfext
 discrete_ptb1 <- left_join(discrete_ptb1, pHT_calib_ptb_discrete,by="date")
 
-write.table(discrete_ptb1,"../pb_data/all_data/continuous_discrete.csv",row.names=FALSE,sep=",",dec=".")
+write.table(discrete_ptb1,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/continuous_discrete.csv",row.names=FALSE,sep=",",dec=".")
 
 # Do it on all seafet data
-seafet_ptb <- read.table("../pb_data/all_data/time-series.csv",header=T,sep=",",dec=".")
+seafet_ptb <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/time-series.csv",header=T,sep=",",dec=".")
 seafet_ptb$date <- ymd_hms(seafet_ptb$date)
 # On supprime les données seaFET abérantes liées du biofouling du 2015-03-12 au 2015-04-02
 seafet_ptb<- seafet_ptb %>% 
@@ -861,7 +861,7 @@ seafet_all_ptb  <- left_join(seafet_all_ptb,discrete_ptb%>%select(date, pHcalc_p
 #seafet_all_ptb  <- left_join(seafet_all_ptb,discrete_ptb[,c(1,18, 19)], by="date")
 #z <- left_join(seafet_all_ptb,discrete_ptb[,c(1,16:17)], by="date")
 
-write.table(seafet_all_ptb,"../pb_data/all_data/continuous_discrete.csv",row.names=FALSE,sep=",",dec=".")
+write.table(seafet_all_ptb,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/continuous_discrete.csv",row.names=FALSE,sep=",",dec=".")
 
 seafet_all_ptb_int <-melt(dplyr::select(seafet_all_ptb, date, pHINT, pHT_sfint), id.vars = "date")
 seafet_all_ptb_ext <-melt(dplyr::select(seafet_all_ptb, date, pHEXT ,pHT_sfext), id.vars = "date")
@@ -1049,8 +1049,14 @@ print(p_spec_cal)
 ##Comparaison between EOL and Point B pH
 
 ```{r Comparaison EOL/PtB, echo=FALSE, out.width="100%"}
-comparaison <- read.table("../pb_data/all_data/Data_DIC.csv", header=T, sep=";", dec=".", as.is=T)
+comparaison <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
 comparaison$date<- dmy(comparaison$sampling_date, tz="UTC")
+# make the mean for ta
+comparaison <- comparaison %>% 
+  dplyr::group_by(date, depth) %>% 
+  dplyr::mutate(ta = mean(ta_dup, na.rm = T)
+            )
+
 # select variables for EOL/PtB comparaison
 comparaison <- comparaison %>%
   dplyr::select(date, depth,temp_field, salinity_field, temp_lab_ptb, pH_s_ptb_temp_lab, qflag_pH_s_ptb,temp_lab_eol, pH_s_eol_temp_lab, qflag_pH_s_eol, ta, PO4, SIOH4)#%>%
@@ -1061,7 +1067,7 @@ comparaison <- comparaison %>%
   dplyr::filter( depth == 0 ) %>%
   dplyr::filter( qflag_pH_s_eol == 2 ) %>%
   dplyr::filter(qflag_pH_s_ptb == 2)
-# interolation of missing TA and nutrients
+# interpolation of missing TA and nutrients
 comparaison <- left_join(comparaison, y%>%select(date, at_ptb), by="date")
 comparaison$at_ptb[is.na(comparaison$at_ptb)] <- mean(comparaison$at_ptb, na.rm= TRUE)
 comparaison$PO4[is.na(comparaison$PO4)] <- 0
@@ -1071,12 +1077,15 @@ eol <- comparaison%>%
   dplyr::filter(!is.na(pH_s_eol_temp_lab) & !is.na(temp_field) & !is.na(salinity_field))
 ptb <- comparaison%>%
   dplyr::filter(!is.na(pH_s_ptb_temp_lab)& !is.na(temp_field) & !is.na(salinity_field))
-# conversion of pH
-eol <- eol %>% 
-  dplyr::mutate(pH_s_eol_Tptb = pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4))
 
-ptb <- ptb %>% 
-  dplyr::mutate(pH_s_ptb_Tptb = pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$at_ptb*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4))
+# conversion of pH
+eol$pH_s_eol_Tptb <- pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4)
+ptb$pH_s_ptb_Tptb <- pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$at_ptb*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4)
+#eol <- eol %>% 
+#  dplyr::mutate(pH_s_eol_Tptb = pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4))
+#ptb <- ptb %>% 
+#  dplyr::mutate(pH_s_ptb_Tptb = pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$at_ptb*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4))
+
 # mean of variables
 ptb <- ptb %>%
   dplyr::group_by(date)%>%
@@ -1102,8 +1111,8 @@ comparaison_p <-
   geom_line(aes(x = pH_s_ptb_Tptb, y = pH_s_ptb_Tptb), linetype = 2)  +
   geom_point(data=comparaison_mean%>%filter(date == "2017-08-01" | date =="2016-09-06"| date =="2017-06-27"|date =="2017-10-24"|date=="2017-08-07" | date=="2017-05-23"), aes(x = pH_s_ptb_Tptb, y = pH_s_eol_Tptb),colour="red", size=3) +
   mytheme+labs(x="pH PointB", y="pH EOL") +
-   scale_x_continuous(breaks = seq(7.95,8.15,0.01))  +
-   scale_y_continuous(breaks = seq(7.95,8.15,0.01)) 
+   scale_x_continuous(breaks = seq(7.9,8.3,0.05))  +
+   scale_y_continuous(breaks = seq(7.9,8.3,0.05)) + theme(legend.position="bottom", axis.text.x = element_text(angle = 45, hjust = 1)) 
 #  geom_point(data=temperature_Out, aes(x=pH_s_ptb_Tptb,y=pH_s_eol_Tptb), colour = "red", size=5)
 print (comparaison_p)
 
@@ -1126,7 +1135,7 @@ seafet_diff_filter_inf <-  seafet_diff %>%
 seafet_diff_xts <- dplyr::select(seafet_diff, date, diffpHintext)
 seafet_diff_xts <- as.xts(seafet_diff_xts, order.by=seafet_diff_xts$date)
 
-events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:00:08","2015-09-29 09:00:08","2015-12-08 09:00:08","2016-01-07 09:00:08", "2016-03-08 09:00:08", "2016-04-08 08:00:08", "2016-06-03 08:00:08", "2016-07-06 08:00:08", "2016-09-06 08:00:08", "2016-10-26 08:00:08", "2016-11-08 09:00:08", "2016-12-07 09:00:08", "2017-02-01 09:00:08","2017-03-22 09:00:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-10-25 08:00:00","2018-11-09 09:00:00")
+events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:00:08","2015-09-29 09:00:08","2015-12-08 09:00:08","2016-01-07 09:00:08", "2016-03-08 09:00:08", "2016-04-08 08:00:08", "2016-06-03 08:00:08", "2016-07-06 08:00:08", "2016-09-06 08:00:08", "2016-10-26 08:00:08", "2016-11-08 09:00:08", "2016-12-07 09:00:08", "2017-02-01 09:00:08","2017-03-22 09:00:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00","2019-01-07 09:00:00")
 
 dygraph(seafet_diff_xts, main ="pH INT - pH EXT") %>%
 dyAxis("y",valueRange = c(-11, 10))%>%
@@ -1170,7 +1179,8 @@ dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET Changed by #057", l
   dyShading(from = events[35], to = events[36], color = "#FFFFFF") %>%
   dyShading(from = events[36], to = events[37], color = "#CCCCCC") %>%
   dyShading(from = events[37], to = events[38], color = "#E0E0E0") %>%
-  dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
+  #dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
+ 
   dyRangeSelector(height = 30)
 
 # p_diffpHintext <-  ggplot() +
@@ -1189,7 +1199,7 @@ dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET Changed by #057", l
 ##Final results
 
 ```{r, fig.width=12, fig.height=5, echo=FALSE}
-events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:05:08","2015-09-29 09:00:08","2015-12-08 09:05:08","2016-01-07 09:05:08", "2016-03-08 09:05:08", "2016-04-08 08:05:08", "2016-06-03 08:05:08", "2016-07-06 08:05:08","2016-09-06 08:05:08","2016-10-26 08:05:08", "2016-11-08 09:05:08", "2016-12-07 09:05:08", "2017-02-01 09:05:08", "2017-03-22 09:05:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-10-25 08:00:00","2018-11-09 09:00:00")
+events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:05:08","2015-09-29 09:00:08","2015-12-08 09:05:08","2016-01-07 09:05:08", "2016-03-08 09:05:08", "2016-04-08 08:05:08", "2016-06-03 08:05:08", "2016-07-06 08:05:08","2016-09-06 08:05:08","2016-10-26 08:05:08", "2016-11-08 09:05:08", "2016-12-07 09:05:08", "2017-02-01 09:05:08", "2017-03-22 09:05:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00", "2019-01-07 09:00:00")
 seafet_all_ptb_xts <- dplyr::select(seafet_all_ptb, date,pHT_sfint,pHINT, pHspec_Tptb)
 seafet_all_ptb_xts <- as.xts(seafet_all_ptb_xts, order.by=seafet_all_ptb_xts$date)
 
@@ -1234,6 +1244,7 @@ dygraph(seafet_all_ptb_xts) %>%
   dyShading(from = events[35], to = events[36], color = "#FFFFFF") %>%
   dyShading(from = events[36], to = events[37], color = "#CCCCCC") %>%
   dyShading(from = events[37], to = events[38], color = "#E0E0E0") %>%
+    #dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
   dyOptions(digitsAfterDecimal=4)%>%
   dyRangeSelector(height = 30)
 
@@ -1345,57 +1356,58 @@ dygraph(seafet_all_ptb_noT_xts) %>%
 ##Maintenance
 Following are dates and times (in UTC) for every lowering and recovery (deployement period) of the sensor. Changement of batteries and any other problems are also added here:
   
-  -  2018-11-09: back in water at 09:30.
-  -  2018-10-25: out of water at 08:00 to give to Christophe for "science card" settings.
-  -  2018-09-27: checking the magnet underwater for green light.
-  -  2018-09-17: out of water for checking only (08:00) and put back 15 min after.
-  -  2018-09-11: back in water at 12:00, New #1005 V2 model.
-  -  2018-05-02: out of water for checking only (08:15) in situ and put back 15 min after.
-  -  2018-03-27: out of water for checking only (08:10) in situ and put back 15 min after.
-  -  2018-02-27: out of water at 09:10 and back in water at 10:30 (The external reference electrode was polished, battery was replaced). No measurements since 2018-02-16 15:00 (11 days).
-  -  2018-01-02: out of water for checking only at lab and put back 25 min after.
-  -  2017-11-30: out of water at 09:10 and put the other sensor #057 in water at 09:30 (The external reference electrode was polished).
-  -  2017-11-07: out of water for checking only on board and put back 5 min after.
-  -  2017-10-17: out of water at 09:10 and put back in water at 09:30 (The external reference electrode was polished).
-  -  2017-09-15: out of water at 08:05 and back in water at 12:30 (The external reference electrode was polished).
-  -  2017-08-29: out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished).
-  -  2017-06-14: out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished, battery was replaced).
-  -  2017-05-02: out of water at 08:05 and back in water at 12:00 on the 2017-05-03 because of bad weather (The external reference electrode was polished).
-  -  2017-03-22: out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
-  -  2017-02-01: out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
-  -  2016-12-07: out of water at 09:20 and back in water at 14:00 (The external reference electrode was polished, battery was replaced).
-  -  2016-11-08: out of water at 09:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-10-26: out of water at 08:00 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-09-06: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-07-06: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished, battery was replaced). No measurements since 2016-07-03 19:00 (3 days).
-  -  2016-06-03: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-04-08: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-03-08: out of water at 10:50 and back in water at 14:00 (The external reference electrode was polished).
-  -  2016-01-15: Back in water at 09:30 (No measurement during 8 days because of bad weather). 
-  -  2016-01-07: out of water at 09:30 and battery replacement (The external reference electrode was polished).
-  -  2015-12-08: out of water at 09:30 and back in water at 13:30 (The external reference electrode was polished).
-  -  2015-09-29: out of water at 09:10 and back in water at 13:00
-  -  2015-07-27: sensor was switched up and down at 08:15 in order to put sensor toward the bottom as noted in the manual.
-  -  2015-07-06: out of water at 08:10 and back in water at 12:30
-  -  2015-06-27: out of battery at 02:00 (No more measurements during 10 days).
-  -  2015-06-01: out of water at 08:20 and back in water at 13:10.
-  -  2015-03-31: out of water at 07:10 and back in water at 13:10.
-  -  2015-03-12 to 2015-04-02 : biofouling. Data not taken in consideration.
-  -  2014-12-19: out of water at 09:30 and back in water at 12:30 and battery replacement.
-  -  2014-11-20: out of water at 09:30 and back in water at 15:00. 
-  -  2014-09-16: out of water at 08:00 and back in water at 13:00.
-  -  2014-06-27: out of water at 10:00, back in water at 11:00 and battery replacement.
-  -  2014-06-05: out of battery at 11:00 (No more measurements during 22 days).
-  -  2014-04-29: back in water at 17:00 (Not put before because of the bad weather).
-  -  2014-04-28: out of water at 13:00.
-  -  2014-02-11: out of water at 09:00 and back in water at 10:00.
-  -  2014-01-07: out of water at 09:00 and back in water at 11:00.
-  -  2013-12-18: sensor \#007 installed.
+  -  **2019-01-07:** out of water at 09:10 and back in water at 10:30
+  -  **2018-11-09:** back in water at 09:30.
+  -  **2018-10-25:** out of water at 08:00 to give to Christophe for "science card" settings.
+  -  **2018-09-27:** checking the magnet underwater for green light.
+  -  **2018-09-17:** out of water for checking only (08:00) and put back 15 min after.
+  -  **2018-09-11:** back in water at 12:00, New #1005 V2 model.
+  -  **2018-05-02:** out of water for checking only (08:15) in situ and put back 15 min after.
+  -  **2018-03-27:** out of water for checking only (08:10) in situ and put back 15 min after.
+  -  **2018-02-27:** out of water at 09:10 and back in water at 10:30 (The external reference electrode was polished, battery was replaced). No measurements since 2018-02-16 15:00 (11 days).
+  -  **2018-01-02:** out of water for checking only at lab and put back 25 min after.
+  -  **2017-11-30:** out of water at 09:10 and put the other sensor #057 in water at 09:30 (The external reference electrode was polished).
+  -  **2017-11-07:** out of water for checking only on board and put back 5 min after.
+  -  **2017-10-17:** out of water at 09:10 and put back in water at 09:30 (The external reference electrode was polished).
+  -  **2017-09-15:** out of water at 08:05 and back in water at 12:30 (The external reference electrode was polished).
+  -  **2017-08-29:** out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished).
+  -  **2017-06-14:** out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished, battery was replaced).
+  -  **2017-05-02:**out of water at 08:05 and back in water at 12:00 on the 2017-05-03 because of bad weather (The external reference electrode was polished).
+  -  **2017-03-22:**out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2017-02-01:**out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2016-12-07:**out of water at 09:20 and back in water at 14:00 (The external reference electrode was polished, battery was replaced).
+  -  **2016-11-08:**out of water at 09:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-10-26:**out of water at 08:00 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-09-06:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-07-06:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished, battery was replaced). No measurements since 2016-07-03 19:00 (3 days).
+  -  **2016-06-03:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-04-08:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-03-08:**out of water at 10:50 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2016-01-15:**Back in water at 09:30 (No measurement during 8 days because of bad weather). 
+  -  **2016-01-07:**out of water at 09:30 and battery replacement (The external reference electrode was polished).
+  -  **2015-12-08:**out of water at 09:30 and back in water at 13:30 (The external reference electrode was polished).
+  -  **2015-09-29:**out of water at 09:10 and back in water at 13:00
+  -  **2015-07-27:**sensor was switched up and down at 08:15 in order to put sensor toward the bottom as noted in the manual.
+  -  **2015-07-06:**out of water at 08:10 and back in water at 12:30
+  -  **2015-06-27:**out of battery at 02:00 (No more measurements during 10 days).
+  -  **2015-06-01:**out of water at 08:20 and back in water at 13:10.
+  -  **2015-03-31:**out of water at 07:10 and back in water at 13:10.
+  -  **2015-03-12 to 2015-04-02 :**biofouling. Data not taken in consideration.
+  -  **2014-12-19:**out of water at 09:30 and back in water at 12:30 and battery replacement.
+  -  **2014-11-20:**out of water at 09:30 and back in water at 15:00. 
+  -  **2014-09-16:**out of water at 08:00 and back in water at 13:00.
+  -  **2014-06-27:**out of water at 10:00, back in water at 11:00 and battery replacement.
+  -  **2014-06-05:**out of battery at 11:00 (No more measurements during 22 days).
+  -  **2014-04-29:**back in water at 17:00 (Not put before because of the bad weather).
+  -  **2014-04-28:**out of water at 13:00.
+  -  **2014-02-11:**out of water at 09:00 and back in water at 10:00.
+  -  **2014-01-07**: out of water at 09:00 and back in water at 11:00.
+  -  **2013-12-18**: sensor \#007 installed.
   
   
 EOL Buoy cleaning dates:
 
-- 2016-04-22: finished at 09:00
+- **2016-04-22**:finished at 09:00
 
 ##Acknowlegments
 
