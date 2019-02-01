@@ -8,7 +8,7 @@ output:
     number_sections: false
 ---
 
-```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE, include =FALSE}
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 library(ggplot2)
 library(seacarb) 
@@ -1356,57 +1356,58 @@ dygraph(seafet_all_ptb_noT_xts) %>%
 ##Maintenance
 Following are dates and times (in UTC) for every lowering and recovery (deployement period) of the sensor. Changement of batteries and any other problems are also added here:
   
-  -  2018-11-09: back in water at 09:30.
-  -  2018-10-25: out of water at 08:00 to give to Christophe for "science card" settings.
-  -  2018-09-27: checking the magnet underwater for green light.
-  -  2018-09-17: out of water for checking only (08:00) and put back 15 min after.
-  -  2018-09-11: back in water at 12:00, New #1005 V2 model.
-  -  2018-05-02: out of water for checking only (08:15) in situ and put back 15 min after.
-  -  2018-03-27: out of water for checking only (08:10) in situ and put back 15 min after.
-  -  2018-02-27: out of water at 09:10 and back in water at 10:30 (The external reference electrode was polished, battery was replaced). No measurements since 2018-02-16 15:00 (11 days).
-  -  2018-01-02: out of water for checking only at lab and put back 25 min after.
-  -  2017-11-30: out of water at 09:10 and put the other sensor #057 in water at 09:30 (The external reference electrode was polished).
-  -  2017-11-07: out of water for checking only on board and put back 5 min after.
-  -  2017-10-17: out of water at 09:10 and put back in water at 09:30 (The external reference electrode was polished).
-  -  2017-09-15: out of water at 08:05 and back in water at 12:30 (The external reference electrode was polished).
-  -  2017-08-29: out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished).
-  -  2017-06-14: out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished, battery was replaced).
-  -  2017-05-02: out of water at 08:05 and back in water at 12:00 on the 2017-05-03 because of bad weather (The external reference electrode was polished).
-  -  2017-03-22: out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
-  -  2017-02-01: out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
-  -  2016-12-07: out of water at 09:20 and back in water at 14:00 (The external reference electrode was polished, battery was replaced).
-  -  2016-11-08: out of water at 09:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-10-26: out of water at 08:00 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-09-06: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-07-06: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished, battery was replaced). No measurements since 2016-07-03 19:00 (3 days).
-  -  2016-06-03: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-04-08: out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
-  -  2016-03-08: out of water at 10:50 and back in water at 14:00 (The external reference electrode was polished).
-  -  2016-01-15: Back in water at 09:30 (No measurement during 8 days because of bad weather). 
-  -  2016-01-07: out of water at 09:30 and battery replacement (The external reference electrode was polished).
-  -  2015-12-08: out of water at 09:30 and back in water at 13:30 (The external reference electrode was polished).
-  -  2015-09-29: out of water at 09:10 and back in water at 13:00
-  -  2015-07-27: sensor was switched up and down at 08:15 in order to put sensor toward the bottom as noted in the manual.
-  -  2015-07-06: out of water at 08:10 and back in water at 12:30
-  -  2015-06-27: out of battery at 02:00 (No more measurements during 10 days).
-  -  2015-06-01: out of water at 08:20 and back in water at 13:10.
-  -  2015-03-31: out of water at 07:10 and back in water at 13:10.
-  -  2015-03-12 to 2015-04-02 : biofouling. Data not taken in consideration.
-  -  2014-12-19: out of water at 09:30 and back in water at 12:30 and battery replacement.
-  -  2014-11-20: out of water at 09:30 and back in water at 15:00. 
-  -  2014-09-16: out of water at 08:00 and back in water at 13:00.
-  -  2014-06-27: out of water at 10:00, back in water at 11:00 and battery replacement.
-  -  2014-06-05: out of battery at 11:00 (No more measurements during 22 days).
-  -  2014-04-29: back in water at 17:00 (Not put before because of the bad weather).
-  -  2014-04-28: out of water at 13:00.
-  -  2014-02-11: out of water at 09:00 and back in water at 10:00.
-  -  2014-01-07: out of water at 09:00 and back in water at 11:00.
-  -  2013-12-18: sensor \#007 installed.
+  -  **2019-01-07:** out of water at 09:10 and back in water at 10:30
+  -  **2018-11-09:** back in water at 09:30.
+  -  **2018-10-25:** out of water at 08:00 to give to Christophe for "science card" settings.
+  -  **2018-09-27:** checking the magnet underwater for green light.
+  -  **2018-09-17:** out of water for checking only (08:00) and put back 15 min after.
+  -  **2018-09-11:** back in water at 12:00, New #1005 V2 model.
+  -  **2018-05-02:** out of water for checking only (08:15) in situ and put back 15 min after.
+  -  **2018-03-27:** out of water for checking only (08:10) in situ and put back 15 min after.
+  -  **2018-02-27:** out of water at 09:10 and back in water at 10:30 (The external reference electrode was polished, battery was replaced). No measurements since 2018-02-16 15:00 (11 days).
+  -  **2018-01-02:** out of water for checking only at lab and put back 25 min after.
+  -  **2017-11-30:** out of water at 09:10 and put the other sensor #057 in water at 09:30 (The external reference electrode was polished).
+  -  **2017-11-07:** out of water for checking only on board and put back 5 min after.
+  -  **2017-10-17:** out of water at 09:10 and put back in water at 09:30 (The external reference electrode was polished).
+  -  **2017-09-15:** out of water at 08:05 and back in water at 12:30 (The external reference electrode was polished).
+  -  **2017-08-29:** out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished).
+  -  **2017-06-14:** out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished, battery was replaced).
+  -  **2017-05-02:**out of water at 08:05 and back in water at 12:00 on the 2017-05-03 because of bad weather (The external reference electrode was polished).
+  -  **2017-03-22:**out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2017-02-01:**out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2016-12-07:**out of water at 09:20 and back in water at 14:00 (The external reference electrode was polished, battery was replaced).
+  -  **2016-11-08:**out of water at 09:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-10-26:**out of water at 08:00 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-09-06:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-07-06:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished, battery was replaced). No measurements since 2016-07-03 19:00 (3 days).
+  -  **2016-06-03:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-04-08:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-03-08:**out of water at 10:50 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2016-01-15:**Back in water at 09:30 (No measurement during 8 days because of bad weather). 
+  -  **2016-01-07:**out of water at 09:30 and battery replacement (The external reference electrode was polished).
+  -  **2015-12-08:**out of water at 09:30 and back in water at 13:30 (The external reference electrode was polished).
+  -  **2015-09-29:**out of water at 09:10 and back in water at 13:00
+  -  **2015-07-27:**sensor was switched up and down at 08:15 in order to put sensor toward the bottom as noted in the manual.
+  -  **2015-07-06:**out of water at 08:10 and back in water at 12:30
+  -  **2015-06-27:**out of battery at 02:00 (No more measurements during 10 days).
+  -  **2015-06-01:**out of water at 08:20 and back in water at 13:10.
+  -  **2015-03-31:**out of water at 07:10 and back in water at 13:10.
+  -  **2015-03-12 to 2015-04-02 :**biofouling. Data not taken in consideration.
+  -  **2014-12-19:**out of water at 09:30 and back in water at 12:30 and battery replacement.
+  -  **2014-11-20:**out of water at 09:30 and back in water at 15:00. 
+  -  **2014-09-16:**out of water at 08:00 and back in water at 13:00.
+  -  **2014-06-27:**out of water at 10:00, back in water at 11:00 and battery replacement.
+  -  **2014-06-05:**out of battery at 11:00 (No more measurements during 22 days).
+  -  **2014-04-29:**back in water at 17:00 (Not put before because of the bad weather).
+  -  **2014-04-28:**out of water at 13:00.
+  -  **2014-02-11:**out of water at 09:00 and back in water at 10:00.
+  -  **2014-01-07**: out of water at 09:00 and back in water at 11:00.
+  -  **2013-12-18**: sensor \#007 installed.
   
   
 EOL Buoy cleaning dates:
 
-- 2016-04-22: finished at 09:00
+- **2016-04-22**:finished at 09:00
 
 ##Acknowlegments
 
