@@ -164,6 +164,9 @@ colnames(z)  <- c("Serial num","date", "sampleNumber", "errorFlag", "phEXT","phI
 z$voltSupply <- NA
 z$date<- mdy_hms(z$date, tz="UTC")
 #---------- Selectionner les colonnes pertinentes
+z <- z %>%
+  dplyr::filter(errorFlag == 0)
+
 z  <- z %>%
   dplyr::select(date,phINT,phEXT,T_seaF,voltINT,voltEXT,voltSupply, humidity,T_int,deployment)
 colnames(z)  <- c("date","pHINT","pHEXT","T_seaF","Eint","Eext","voltSupply", "humidity","T_int" ,"deployment")
