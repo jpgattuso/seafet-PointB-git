@@ -868,15 +868,18 @@ discrete_ptb1$delta_spec15_corr <- discrete_ptb1$pHT_sf15_corr - discrete_ptb1$p
 discrete_ptb1$delta_calc15_corr <- discrete_ptb1$pHT_sf15_corr - discrete_ptb1$pHT_calc15 # diff with calculated pH
 
 ddl <- discrete_ptb1 %>%
-    dplyr::select(date, delta_calc15_corr, delta_spec15_corr) %>%
-    melt(id.vars = "date")
+    dplyr::select(date, delta_calc15_corr, delta_spec15_corr) 
 
-p_delta_corr <- ggplot(ddl, aes(x=date, y=value, colour=variable)) +
-  geom_point(size=5) +  geom_line() + 
-  geom_hline(yintercept=0) +
-  labs( x="Time", y=expression(paste("Delta ",pH[T], ", 15 °C"))) +
-  scale_color_manual("",values=c("#999999", "blue"), labels=c("seaFET corr - calculated", "seaFET corr - spectro"))  + 
-  mytheme  + theme(legend.position="bottom") + labs(title= "seaFET data corrected") 
+delta_corr_xts <- dplyr::select(ddl, date, delta_calc15_corr, delta_spec15_corr)
+delta_corr_xts <- as.xts(delta_corr_xts, order.by=delta_corr_xts$date)
+
+dygraph(delta_corr_xts, ylab = "Delta pH<sub>T</sub> 15°C") %>%
+  dySeries("delta_calc15_corr", drawPoints = TRUE, pointSize=4, label = "seaFET corr - calculated")%>%
+  dySeries("delta_spec15_corr", drawPoints = TRUE, pointSize=4, label = "seaFET corr - spectro") %>%
+  dyLimit(0)%>%
+  dyLegend(show = "always", width = 600)%>%
+  dyAxis("y",valueRange = c(-0.1, 0.11))%>%
+  dyRangeSelector(height = 30)
 
 # # pH deltas vs time ###########  seaFET NOT CORRECTED
 # # normalized seafet pH external with 15°C without correction
@@ -897,19 +900,20 @@ p_delta_corr <- ggplot(ddl, aes(x=date, y=value, colour=variable)) +
 # #+ ylim(c(-0.04, 0.60))
 # 
 # print(p_delta)
-print(p_delta_corr)
 ```
+
 Last calculated pH data, from TA/DIC point B (in grey), must not be taken in consideration since the last analysis are not done by SNAPO. Here, last data are calculated on a "mean TA/DIC" basis and do not reflect the reality.
 
-> McLaughlin et al. 2017
-
+> McLaughlin et al. 2017 [Article](https://reader.elsevier.com/reader/sd/pii/S2352485516302559?token=32EEF36D3E70FC7ADF8BD0915A7FDBC9DC3EBEA64EFF1B987B3FF82AEEEAFC5F8DA33DB2A977351D9D78CAED13C16A52)
+>
 > “operator error appears to be a defining factor in generating usable data with an ISFET sensor.”
->“**differences between calibrated sensor pH values and values obtained from discrete, check samples can be expected to be as small as 0.02 pH units, and perhaps less.**”
+>
+> “**differences between calibrated sensor pH values and values obtained from discrete, check samples can be expected to be as small as 0.02 pH units, and perhaps less.**”
+>
 >“co-deployment of at least one other independent sensor would provide confirmation that the sensors are not drifting and greatly improve confidence in
 data quality.”
 
- [Article](https://reader.elsevier.com/reader/sd/pii/S2352485516302559?token=32EEF36D3E70FC7ADF8BD0915A7FDBC9DC3EBEA64EFF1B987B3FF82AEEEAFC5F8DA33DB2A977351D9D78CAED13C16A52)
-
+ 
 
 ###**seaFET pH15° vs calculated pH15°**
 
