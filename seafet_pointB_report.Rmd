@@ -30,86 +30,6 @@ library(xts)
 rm(list = ls())
 ## theme to format the plots
 Sys.setenv(TZ='UTC') # on utilise UTC
-#################### pH calibration, 1st function
-####
-# inputs are calEint = Eint(V), calEext = Eext(V), calpH = pH spectro or (CT,AT) 
-# at insitu T, calT = T38 in °C, calsal = salinity
-# outputs are E0int15 = E*int,25 and E0ext15 = E*ext,25
-#
-pHCalib <- function(calEint, calEext, calpH, calT, calsal) { 
-# Univ gas constant, Faraday constant, 
-R <- 8.3145
-FF <- 96487 
-# Temperature dependence oF standard potentials, Martz et al. 2010
-dE0int <- -0.001101
-dE0ext <- -0.001048
-# See Martz et al. 2010 For greater detail
-tempK <- calT + 273.15 # Convert temp From C to K
-S_T <- (R*tempK)/FF*log(10) # Nernst temp dependence
-
-E0int <- calEint-S_T*calpH # Calc E0int From Nernst & pH @ calibration point
-E0int25 <- E0int+dE0int*(25-calT)
-
-Z <- 19.924*calsal/(1000-1.005*calsal) # Ionic strength, Dickson et al. 2007
-SO4_tot <- (0.14/96.062)*(calsal/1.80655)  # Total conservative sulFate
-cCl <- 0.99889/35.453*calsal/1.80655 # Conservative chloride
-mCl <- cCl*1000/(1000-calsal*35.165/35) # mol/kg-H2O
-K_HSO4 <- exp(-4276.1/tempK+141.328-23.093*log(tempK) +
-             (-13856/tempK+324.57-47.986*log(tempK))*Z^0.5 + 
-             (35474/tempK-771.54+114.723*log(tempK))*Z-2698/tempK*Z^1.5 +
-             1776/tempK*Z^2+log(1-0.001005*calsal)) # BisulFate equilibrium const., Dickson et al. 2007
-pHint_free <- calpH+log10(1+SO4_tot/K_HSO4)
-cHfree <- 10^(-pHint_free) # mol/kg-sw
-pHint_free <- pHint_free+log10((1000-calsal*35.165/35)/1000) # mol/kg-H2O
-mHfree <- 10^(-pHint_free) # mol/kg-H2O
-DHconst <- 0.00000343*calT^2+0.00067524*calT+0.49172143 # Debye-Huckel, Khoo et al. 1977
-log10gamma_HCl <- 2*(-DHconst*sqrt(Z)/(1+1.394*sqrt(Z))+(0.08885-0.000111*calT)*Z)
-aHfree_aCl <- mHfree*mCl*10^(log10gamma_HCl) 
-E0ext <- calEext+S_T*log10(aHfree_aCl)
-E0ext25 <- E0ext+dE0ext*(25-calT)
-
-calib <- list(E0int25, E0ext25)
-return(calib)
-}
-
-#################### pH calcul, 2nd function
-####
-# inputs are Eint = Eint(V), Eext = Eext(V), E0int25, E0ext25, tempC in °C and salt
-# output are pH tot EXT and pH tot INT
-pHCalc <- function(Eint,Eext,E0int25,E0ext25,tempC,salt){
-# Univ gas constant, Faraday constant
-FF <- 96487 
-R <- 8.3145 
-#Eint <- discrete$voltINT
-#Eext <- discrete$voltEXT
-#E0int15 <- #calib_spectro$E0int15
-#E0ext15 <- -1.439261 #calib_spectro$E0ext15
-#tempC <- discrete$T_seaF.x
-#salt <- discrete$S_ptb.x 
-# Temperature dependence oF standard potentials, Martz et al. 2010
-dE0Int <- -0.001101 
-dE0Ext <- -0.001048
-# See Martz et al. 2010 For greater detail
-tempK <- tempC+273.15 # Convert temp From C to K
-S_T <- (R*tempK)/FF*log(10) # Nernst temp dependence
-pHint_tot <- (Eint-(E0int25+dE0Int*(tempC-25)))/S_T # Calc pHint From Nernst
-Z <- 19.924*salt/(1000-1.005*salt) # Ionic strength, Dickson et al. 2007
-SO4_tot <- (0.14/96.062)*(salt/1.80655) # Total conservative sulFate
-cCl <- 0.99889/35.453*salt/1.80655 # Conservative chloride
-mCl <- cCl*1000/(1000-salt*35.165/35) # mol/kg-H2O
-K_HSO4 <- exp(-4276.1/tempK+141.328-23.093*log(tempK) +
-             (-13856/tempK+324.57-47.986*log(tempK))*Z^0.5 +
-             (35474/tempK-771.54+114.723*log(tempK))*Z-2698/tempK*Z^1.5 +
-             1776/tempK*Z^2+log(1-0.001005*salt)) # BisulFate equilibrium const., Dickson et al. 2007
-pHint_free <- pHint_tot+log10(1+SO4_tot/K_HSO4) # free scale mol/kg-sw
-DHconst <- 0.00000343*tempC^2+0.00067524*tempC+0.49172143 # Debye-Huckel, Khoo et al. 1977
-log10gamma_HCl <- 2*(-DHconst*sqrt(Z)/(1+1.394*sqrt(Z))+(0.08885-0.000111*tempC)*Z)
-pHext_free <- -(((E0ext25+dE0Ext*(tempC-25))-Eext)-S_T*(log10(mCl)+log10gamma_HCl))/S_T # mol/kg-H2O
-pHext_free <- pHext_free-log10((1000-salt*35.165/35)/1000) # mol/kg-sw
-pHext_tot <- pHext_free-log10(1+SO4_tot/K_HSO4)
-calc <- list(pHint_tot, pHext_tot)
-return(calc)
-}
 
 #################### Regression function 
 ####
@@ -214,7 +134,7 @@ TAB<- TAB %>%
 
 #---------- ouvrir données POINT B Data_DIC
 # les heures des donnees ptB ont ete ajoutées au fichier "y"
-y <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
+y <- read.table("../../pCloud Sync/exp153_carbonates_point_B/data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
 #y <- read.table("../../../shared_data_dic/Data_DIC.csv", header=T, sep=";", dec=".", as.is=T)
 #y$date <- paste(y$Date, "08:00:08", sep=" ")
 y$date<- dmy(y$sampling_date, tz="UTC")
@@ -668,7 +588,7 @@ Graphic and table below show all the weekly interpolated Point B parameters (sal
 
 * NAs are related to Non Available data because of the in progress deployement, samples not yet measured or problem with measurements.
 
-```{r discrete table, echo=FALSE, message=FALSE, out.width="100%"}
+```{r discrete table, echo=FALSE, warning= FALSE, message=FALSE, out.width="100%"}
 
 print(time_series_dis)
 
@@ -676,17 +596,14 @@ print(time_series_dis)
 discrete<- discrete %>% 
 dplyr::filter(date <= as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date >= as.POSIXct("2015-04-02 08:00:08",tz="UTC"))
 
-#library(knitr)
-#kable(discrete[,c(1:5,10,6:9,11:15)], digits = 4, longtable= TRUE)
-
-kable(discrete[,c(1,17, 10:15 )], digits=5)
+#kable(discrete[,c(1,17, 10:15 )], digits=5)
 write.table(discrete,"../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
 ```
 
 ###**seaFET T° vs Point B T°**
 Regressions are Model II (geometric).
 
-```{r discrete temperature T_seaF VS T_ptb, echo=FALSE, message=FALSE, out.width="50%", fig.align='left'}
+```{r discrete temperature T_seaF VS T_ptb, echo=FALSE, message=FALSE, out.width="70%", fig.align='left'}
 # Regression model II
 ## 1
 ## T_seaF VS T_ptb
@@ -737,7 +654,7 @@ dplyr::filter(date < as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date > as.POSI
 
 ################       Run of the function 1 pHCalib to calculate          
 ################ new E0int25/E0ext25 needed in the fucntion 2 (pHtot calc) 
-calib_spectro_ptb <- pHCalib(calEint=discrete_ptb$Eint, calEext=discrete_ptb$Eext, calpH=discrete_ptb$pHspec_Tptb, calT=discrete_ptb$T_ptb, calsal=discrete_ptb$S_ptb)
+calib_spectro_ptb <- sf_calib(calEint=discrete_ptb$Eint, calEext=discrete_ptb$Eext, calpH=discrete_ptb$pHspec_Tptb, calT=discrete_ptb$T_ptb, calSal=discrete_ptb$S_ptb)
 names(calib_spectro_ptb) <- c("E0int25", "E0ext25")
 calib_spectro_ptb <- as.data.frame(calib_spectro_ptb)
 calib_spectro_ptb$dt <- discrete_ptb$date
@@ -767,7 +684,7 @@ discrete_ptb1 <-left_join(discrete_ptb1, calib_spectro_ptb,by="deployment" )
 ################         Run of the function 2 pHCalc         
 ################ calculate calibrated pH on the entire dataset 
 # on discrete samples
-pHT_calib_ptb_discrete <- pHCalc(Eint=discrete_ptb1$Eint, Eext= discrete_ptb1$Eext, E0int25= discrete_ptb1$E0int25, E0ext25= discrete_ptb1$E0ext25, tempC= discrete_ptb1$T_ptb, salt= discrete_ptb1$S_ptb)
+pHT_calib_ptb_discrete <- sf_calc(calEint=discrete_ptb1$Eint, calEext= discrete_ptb1$Eext, E0int25= discrete_ptb1$E0int25, E0ext25= discrete_ptb1$E0ext25, calT= discrete_ptb1$T_ptb, calSal= discrete_ptb1$S_ptb)
 names(pHT_calib_ptb_discrete) <- c("pHT_sfint", "pHT_sfext")
 pHT_calib_ptb_discrete <- as.data.frame(pHT_calib_ptb_discrete)
 pHT_calib_ptb_discrete$date <- discrete_ptb1$date
@@ -790,7 +707,7 @@ dplyr::filter(date < as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date > as.POSI
 seafet_ptb <-left_join(seafet_ptb, calib_spectro_ptb ,by="deployment" )
 
 
-pHT_calib_ptb <- pHCalc(Eint=seafet_ptb$Eint, Eext= seafet_ptb$Eext, E0int25= seafet_ptb$E0int25, E0ext25= seafet_ptb$E0ext25, tempC= seafet_ptb$T_ptb, salt= seafet_ptb$S_ptb)
+pHT_calib_ptb <- sf_calc(calEint=seafet_ptb$Eint, calEext= seafet_ptb$Eext, E0int25= seafet_ptb$E0int25, E0ext25= seafet_ptb$E0ext25, calT = seafet_ptb$T_ptb, calSal= seafet_ptb$S_ptb)
 names(pHT_calib_ptb) <- c("pHT_sfint", "pHT_sfext")
 pHT_calib_ptb <- as.data.frame(pHT_calib_ptb)
 pHT_calib_ptb$date <- seafet_ptb$date
@@ -847,7 +764,7 @@ print(p_calib_ptb) # Ke0 plot
 
 ###**Delta pH**
 
-```{r POINT B deltas plots, echo=FALSE, warning = FALSE, message = FALSE, out.width='50%'}
+```{r POINT B deltas plots, echo=FALSE, warning = FALSE, message = FALSE, out.width='100%'}
 # on outliar higlithed after 1st shot : 2015-01-27 remove it
 
 discrete_ptb1 <- discrete_ptb1 %>%
@@ -877,6 +794,8 @@ dygraph(delta_corr_xts, ylab = "Delta pH<sub>T</sub> 15°C") %>%
   dySeries("delta_calc15_corr", drawPoints = TRUE, pointSize=4, label = "seaFET corr - calculated")%>%
   dySeries("delta_spec15_corr", drawPoints = TRUE, pointSize=4, label = "seaFET corr - spectro") %>%
   dyLimit(0)%>%
+  dyLimit(0.02,color =  "red")%>%
+  dyLimit(-0.02,color =  "red")%>%
   dyLegend(show = "always", width = 600)%>%
   dyAxis("y",valueRange = c(-0.1, 0.11))%>%
   dyRangeSelector(height = 30)
@@ -921,7 +840,7 @@ Red circles are considered as outliers and are not taken into consideration for 
 We do not calculate pH after the 2015-08-04 because $A_\mathrm{T}$ and $C_\mathrm{T}$ data from Point B are not still available.
 <br>
 
-```{r plots pH seaFET15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='50%'}
+```{r plots pH seaFET15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
 ########### seaFET CORRECTED
 # remove calculated data after this date because AT CT not  available. 
 discrete_ptb2_without <- discrete_ptb1 %>%
@@ -961,7 +880,7 @@ print(p_sf_cal_corr_ptb)
 
 ###**seaFET pH15° vs spectro15°**
 <br>
-```{r plots pH seaFET 15 vs spectro 15, fig.keep='all', echo=FALSE, warning = FALSE, message = FALSE, out.width='50%'}
+```{r plots pH seaFET 15 vs spectro 15, fig.keep='all', echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
 ########### seaFET CORRECTED
 titre <- "seaFET data corrected"
 fit <- lmodel2(data = discrete_ptb1, pHT_sf15_corr ~ pHT_spec15, nperm = 99)
@@ -987,7 +906,7 @@ print(p_spec_sf_corr)
 
 ###**spectro15° vs calculated pH15°**
 <br>
-```{r plots pH spectro15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='50%'}
+```{r plots pH spectro15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
 
 fit <- lmodel2(data = discrete_ptb2_without, pHT_calc15 ~ pHT_spec15, nperm = 99)
 p_spec_cal <- ggreg2(fit, "pHT_spec15", "pHT_calc15") +
@@ -1003,7 +922,7 @@ print(p_spec_cal)
 
 ##Comparaison between EOL and Point B pH
 
-```{r Comparaison EOL/PtB, echo=FALSE, out.width="100%"}
+```{r Comparaison EOL/PtB, echo=FALSE, include = FALSE,warning = FALSE, message = FALSE, out.width="100%"}
 comparaison <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
 comparaison$date<- dmy(comparaison$sampling_date, tz="UTC")
 # make the mean for ta
@@ -1092,11 +1011,13 @@ seafet_diff_xts <- as.xts(seafet_diff_xts, order.by=seafet_diff_xts$date)
 
 events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:00:08","2015-09-29 09:00:08","2015-12-08 09:00:08","2016-01-07 09:00:08", "2016-03-08 09:00:08", "2016-04-08 08:00:08", "2016-06-03 08:00:08", "2016-07-06 08:00:08", "2016-09-06 08:00:08", "2016-10-26 08:00:08", "2016-11-08 09:00:08", "2016-12-07 09:00:08", "2017-02-01 09:00:08","2017-03-22 09:00:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00","2019-01-07 09:00:00")
 
-dygraph(seafet_diff_xts, main ="pH INT - pH EXT") %>%
-dyAxis("y",valueRange = c(-11, 10))%>%
+dygraph(seafet_diff_xts, main ="RAW pHs: INT - EXT") %>%
+dyAxis("y",valueRange = c(-11, 10), label = "Delta pH")%>%
+  dySeries("diffpHintext",label = "Delta pH")%>%
 dyOptions(drawPoints = TRUE, pointSize = 3, strokeWidth= 0) %>%
 dyLimit(0,color = "black", strokePattern ="dashed")   %>% 
 dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET Changed by #057", labelLoc = "bottom", color="red") %>%
+  dyLegend(show = "always", width = 400)%>%
   dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
   dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
   dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
@@ -1162,6 +1083,7 @@ dygraph(seafet_all_ptb_xts) %>%
   dySeries("pHspec_Tptb", drawPoints = TRUE, pointSize=4) %>%
   dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET #057 installed", labelLoc = "bottom", color="red") %>%
   dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%
+    dyLegend(show = "always", width = 400)%>%
   dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
   dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
   dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
@@ -1211,7 +1133,8 @@ dygraph(seafet_all_ptb_T_xts) %>%
   dySeries("T_seaF", axis = 'y2')%>%
   dySeries("pHspec_Tptb", drawPoints = TRUE, pointSize=4) %>%
   dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET #057 installed", labelLoc = "bottom", color="red") %>%
-  dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%
+  dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%  
+  dyLegend(show = "always", width = 400)%>%
   dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
   dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
   dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
@@ -1266,6 +1189,7 @@ dygraph(seafet_all_ptb_noT_xts) %>%
   dySeries("pHT18_sfint", drawPoints = FALSE, pointSize=4) %>%
   dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET #057 installed", labelLoc = "bottom", color="red") %>%
   dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%
+    dyLegend(show = "always", width = 400)%>%
   dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
   dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
   dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
