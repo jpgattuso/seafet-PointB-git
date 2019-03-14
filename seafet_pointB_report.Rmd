@@ -164,6 +164,9 @@ colnames(z)  <- c("Serial num","date", "sampleNumber", "errorFlag", "phEXT","phI
 z$voltSupply <- NA
 z$date<- mdy_hms(z$date, tz="UTC")
 #---------- Selectionner les colonnes pertinentes
+z <- z %>%
+  dplyr::filter(errorFlag == 0)
+
 z  <- z %>%
   dplyr::select(date,phINT,phEXT,T_seaF,voltINT,voltEXT,voltSupply, humidity,T_int,deployment)
 colnames(z)  <- c("date","pHINT","pHEXT","T_seaF","Eint","Eext","voltSupply", "humidity","T_int" ,"deployment")
@@ -246,6 +249,15 @@ y <- y %>%
             Si_ptb = mean(Si_ptb, na.rm = T),
             Chla_ptb = mean(Chla_ptb, na.rm = T)
             )
+#For discrete plot
+discrete_p <- y %>%
+  dplyr::select(date, S_ptb, T_ptb, at_ptb, dic_ptb, PO4_ptb, Si_ptb)
+discrete_p <- melt(discrete_p, id.vars="date")
+
+time_series_dis <- ggplot(discrete_p) + geom_point(aes(x=date, y=value, color=variable),size=0.5) +
+  facet_grid(variable~., scales="free_y") + 
+  theme_bw()+ xlab("Time")+ylab("")+
+  scale_colour_discrete(guide="none")
 
 # La salinité d'un mardi 08:00 s'etendra avant et apres en fonction de la date pH la plus proche de la date salinité.
 # Environ 3 jours avant et 3 jours apres = meme salinité du mardi.
@@ -283,67 +295,6 @@ TAB$at_ptb <- atptb
 TAB$dic_ptb <- dicptb
 TAB$PO4_ptb <- PO4ptb
 TAB$Si_ptb <- Siptb
-TAB$Chla_ptb <- chlaptb
-
-# # idem pour  T_ptb, at_ptb, dic_ptb
-# dateY <- as.numeric(y$date)
-# temptb <- NULL
-# for(i in 1:length(z$date)) {
-#   dateZ <- as.numeric(z$date[i])
-#   k <- which.min(abs(dateZ - dateY))
-#   #cat(format(z$date[i]), format(y$date[k]), y$T_ptb[k], "\n")
-#   temptb <- append(temptb, y$T_ptb[k])
-# }
-# TAB$T_ptb <- temptb
-# #____________at_____________
-# dateY <- as.numeric(y$date)
-# atptb <- NULL
-# for(i in 1:length(z$date)) {
-#   dateZ <- as.numeric(z$date[i])
-#   k <- which.min(abs(dateZ - dateY))
-#   #cat(format(z$date[i]), format(y$date[k]), y$at_ptb[k], "\n")
-#   atptb <- append(atptb, y$at_ptb[k])
-# }
-# TAB$at_ptb <- atptb
-# #____________dic_____________
-dateY <- as.numeric(y$date)
-dicptb <- NULL
-for(i in 1:length(z$date)) {
-  dateZ <- as.numeric(z$date[i])
-  k <- which.min(abs(dateZ - dateY))
-  #cat(format(z$date[i]), format(y$date[k]), y$dic_ptb[k], "\n")
-  dicptb <- append(dicptb, y$dic_ptb[k])
-}
-TAB$dic_ptb <- dicptb
-#____________PO4_____________
-dateY <- as.numeric(y$date)
-PO4ptb <- NULL
-for(i in 1:length(z$date)) {
-  dateZ <- as.numeric(z$date[i])
-  k <- which.min(abs(dateZ - dateY))
-  #cat(format(z$date[i]), format(y$date[k]), y$PO4_ptb[k], "\n")
-  PO4ptb <- append(PO4ptb, y$PO4_ptb[k])
-}
-TAB$PO4_ptb <- PO4ptb
-#____________Si_____________
-dateY <- as.numeric(y$date)
-Siptb <- NULL
-for(i in 1:length(z$date)) {
-  dateZ <- as.numeric(z$date[i])
-  k <- which.min(abs(dateZ - dateY))
-  #cat(format(z$date[i]), format(y$date[k]), y$Si_ptb[k], "\n")
-  Siptb <- append(Siptb, y$Si_ptb[k])
-}
-TAB$Si_ptb <- Siptb
-#____________chla_____________
-dateY <- as.numeric(y$date)
-chlaptb <- NULL
-for(i in 1:length(z$date)) {
-  dateZ <- as.numeric(z$date[i])
-  k <- which.min(abs(dateZ - dateY))
-  #cat(format(z$date[i]), format(y$date[k]), y$at_ptb[k], "\n")
-  chlaptb <- append(chlaptb, y$Chla_ptb[k])
-}
 TAB$Chla_ptb <- chlaptb
 
 #_____________Interpolation de S, T, at, dic, PO4 et Si ptB__________
@@ -673,7 +624,7 @@ write.table(TAB,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_da
 ```
 
 ## Results
-###**Continuous measurements**
+###**Raw Continuous measurements**
 Graphic below shows raw pH and voltages (V) data for internal and external reference electrodes and temperature from the sensor. It also shows temperature from the sensor. 
 ```{r Plot continuous measurements, echo=FALSE, warning=FALSE, message=FALSE, out.width='100%'}
  
@@ -709,14 +660,6 @@ ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/
 
 print(time_series_cont)
 
-#For discrete
-TAB_hole_dis <- TAB_hole[,c(1,10:16)]
-TABm_hole_dis <- melt(TAB_hole_dis, id.vars="date")
-
-time_series_dis <- ggplot(TABm_hole_dis) + geom_point(aes(x=date, y=value, color=variable),size=0.5) +
-  facet_grid(variable~., scales="free_y") + 
-  theme_bw()+ xlab("Time")+ylab("")+
-  scale_colour_discrete(guide="none")
 ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/time_series_dis.png",time_series_dis,height =18, units="cm")
 ```
 
@@ -866,11 +809,11 @@ write.table(seafet_all_ptb,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_
 seafet_all_ptb_int <-melt(dplyr::select(seafet_all_ptb, date, pHINT, pHT_sfint), id.vars = "date")
 seafet_all_ptb_ext <-melt(dplyr::select(seafet_all_ptb, date, pHEXT ,pHT_sfext), id.vars = "date")
 
-# To see only a short periode : switch the data in the ggplot by those ones.
-seafet_all_ptb_int_short <-seafet_all_ptb_int %>% 
-dplyr::filter(date > as.POSIXct("2016-03-14 07:00:00",tz="UTC") )
-discrete_ptb_short <- discrete_ptb %>% 
-dplyr::filter(date > as.POSIXct("2016-03-14 07:00:00",tz="UTC") )
+# # To see only a short periode : switch the data in the ggplot by those ones.
+# seafet_all_ptb_int_short <-seafet_all_ptb_int %>% 
+# dplyr::filter(date > as.POSIXct("2016-03-14 07:00:00",tz="UTC") )
+# discrete_ptb_short <- discrete_ptb %>% 
+# dplyr::filter(date > as.POSIXct("2016-03-14 07:00:00",tz="UTC") )
 
 
 # # pH ext + pH ext corr / plot pH int + pH int corr
@@ -935,30 +878,38 @@ p_delta_corr <- ggplot(ddl, aes(x=date, y=value, colour=variable)) +
   scale_color_manual("",values=c("#999999", "blue"), labels=c("seaFET corr - calculated", "seaFET corr - spectro"))  + 
   mytheme  + theme(legend.position="bottom") + labs(title= "seaFET data corrected") 
 
-# pH deltas vs time ###########  seaFET NOT CORRECTED
-# normalized seafet pH external with 15°C without correction
-
-discrete_ptb1$delta_spec15 <- discrete_ptb1$pHT_sf15 - discrete_ptb1$pHT_spec15 # diff with spectrophotometric pH
-discrete_ptb1$delta_calc15 <- discrete_ptb1$pHT_sf15 - discrete_ptb1$pHT_calc15 # diff with calculated pH
-
-ddl <- discrete_ptb1 %>%
-    dplyr::select(date, delta_calc15, delta_spec15) %>%
-    melt(id.vars = "date")
-
-p_delta <- ggplot(ddl, aes(x=date, y=value, colour=variable)) +
-  geom_point(size=4) +
-  geom_line() +
-  geom_point(size=4) +  geom_hline(yintercept=0) + labs( x="Time", y=expression(paste("Delta ",pH[T], ", 15 °C"))) +
-  scale_color_manual("",values=c("#999999", "blue"), labels=c("seaFET - calculated", "seaFET - spectro"))  + 
-  mytheme  + theme(legend.position="bottom") + labs(title= "seaFET data not corrected") 
-#+ ylim(c(-0.04, 0.60))
-
-print(p_delta)
+# # pH deltas vs time ###########  seaFET NOT CORRECTED
+# # normalized seafet pH external with 15°C without correction
+# 
+# discrete_ptb1$delta_spec15 <- discrete_ptb1$pHT_sf15 - discrete_ptb1$pHT_spec15 # diff with spectrophotometric pH
+# discrete_ptb1$delta_calc15 <- discrete_ptb1$pHT_sf15 - discrete_ptb1$pHT_calc15 # diff with calculated pH
+# 
+# ddl <- discrete_ptb1 %>%
+#     dplyr::select(date, delta_calc15, delta_spec15) %>%
+#     melt(id.vars = "date")
+# 
+# p_delta <- ggplot(ddl, aes(x=date, y=value, colour=variable)) +
+#   geom_point(size=4) +
+#   geom_line() +
+#   geom_point(size=4) +  geom_hline(yintercept=0) + labs( x="Time", y=expression(paste("Delta ",pH[T], ", 15 °C"))) +
+#   scale_color_manual("",values=c("#999999", "blue"), labels=c("seaFET - calculated", "seaFET - spectro"))  + 
+#   mytheme  + theme(legend.position="bottom") + labs(title= "seaFET data not corrected") 
+# #+ ylim(c(-0.04, 0.60))
+# 
+# print(p_delta)
 print(p_delta_corr)
 ```
-<br>
-<br> 
-<br>
+Last calculated pH data, from TA/DIC point B (in grey), must not be taken in consideration since the last analysis are not done by SNAPO. Here, last data are calculated on a "mean TA/DIC" basis and do not reflect the reality.
+
+> McLaughlin et al. 2017
+
+> “operator error appears to be a defining factor in generating usable data with an ISFET sensor.”
+>“**differences between calibrated sensor pH values and values obtained from discrete, check samples can be expected to be as small as 0.02 pH units, and perhaps less.**”
+>“co-deployment of at least one other independent sensor would provide confirmation that the sensors are not drifting and greatly improve confidence in
+data quality.”
+
+ [Article](https://reader.elsevier.com/reader/sd/pii/S2352485516302559?token=32EEF36D3E70FC7ADF8BD0915A7FDBC9DC3EBEA64EFF1B987B3FF82AEEEAFC5F8DA33DB2A977351D9D78CAED13C16A52)
+
 
 ###**seaFET pH15° vs calculated pH15°**
 
@@ -982,22 +933,22 @@ p_sf_cal_corr_ptb <- ggreg2(fit, "pHT_calc15", "pHT_sf15_corr") +
   mytheme + theme(legend.position="bottom") 
  # geom_point(data=discrete_ptb2_with, aes(x=pHT_calc15,y=pHT_sf15_corr), colour = "red", size=5)
 
-########### seaFET NOT CORRECTED
-#with ptB data
-#discrete_ptb2_without <- discrete_ptb1 %>%
-#  filter(date != "2014-07-16 08:00:08"  & date !="2014-07-30 08:00:08" & date !="2015-05-12 06:00:08" & date !="2015-06-09 #12:00:08" & date !="2015-07-21 08:00:08" & date !="2015-07-15 08:00:08" & date <"2015-08-04 08:00:08")
-#discrete_ptb2_with <- discrete_ptb1 %>%
-# filter(date == "2014-07-16 08:00:08"  | date =="2015-05-12 06:00:08"| date =="2015-06-09 12:00:08" | date =="2014-07-30 #08:00:08" | date =="2015-07-21 08:00:08" | date =="2015-07-15 08:00:08" )
-
-titre <- "seaFET data not corrected"
-fit <- lmodel2(data = discrete_ptb2_without, pHT_sf15 ~ pHT_calc15, nperm = 99)
-p_sf_cal_ptb <- ggreg2(fit, "pHT_calc15", "pHT_sf15") +
-  geom_line(aes(x = pHT_calc15, y = pHT_calc15), linetype = 2) +
-  labs(x=expression(paste("Calculated ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
-  mytheme + theme(legend.position="bottom") 
-# geom_point(data=discrete_ptb2_with, aes(x=pHT_calc15,y=pHT_sf15), colour = "red", size=5)
-
-print(p_sf_cal_ptb)
+# ########### seaFET NOT CORRECTED
+# #with ptB data
+# #discrete_ptb2_without <- discrete_ptb1 %>%
+# #  filter(date != "2014-07-16 08:00:08"  & date !="2014-07-30 08:00:08" & date !="2015-05-12 06:00:08" & date !="2015-06-09 #12:00:08" & date !="2015-07-21 08:00:08" & date !="2015-07-15 08:00:08" & date <"2015-08-04 08:00:08")
+# #discrete_ptb2_with <- discrete_ptb1 %>%
+# # filter(date == "2014-07-16 08:00:08"  | date =="2015-05-12 06:00:08"| date =="2015-06-09 12:00:08" | date =="2014-07-30 #08:00:08" | date =="2015-07-21 08:00:08" | date =="2015-07-15 08:00:08" )
+# 
+# titre <- "seaFET data not corrected"
+# fit <- lmodel2(data = discrete_ptb2_without, pHT_sf15 ~ pHT_calc15, nperm = 99)
+# p_sf_cal_ptb <- ggreg2(fit, "pHT_calc15", "pHT_sf15") +
+#   geom_line(aes(x = pHT_calc15, y = pHT_calc15), linetype = 2) +
+#   labs(x=expression(paste("Calculated ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
+#   mytheme + theme(legend.position="bottom") 
+# # geom_point(data=discrete_ptb2_with, aes(x=pHT_calc15,y=pHT_sf15), colour = "red", size=5)
+# 
+# print(p_sf_cal_ptb)
 print(p_sf_cal_corr_ptb)
 ```
 <br>
@@ -1015,15 +966,15 @@ p_spec_sf_corr <- ggreg2(fit, "pHT_spec15", "pHT_sf15_corr") +
   labs(x=expression(paste("Spectro ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
   mytheme + theme(legend.position="bottom")
 
-########### seaFET NOT CORRECTED
-titre <- "seaFET data not corrected"
-fit <- lmodel2(data = discrete_ptb1, pHT_sf15 ~ pHT_spec15, nperm = 99)
-p_spec_sf <- ggreg2(fit, "pHT_spec15", "pHT_sf15") +
-  geom_line(aes(x = pHT_spec15, y = pHT_spec15), linetype = 2) +
-  labs(x=expression(paste("Spectro ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
-  mytheme + theme(legend.position="bottom")
-
-print(p_spec_sf)
+# ########### seaFET NOT CORRECTED
+# titre <- "seaFET data not corrected"
+# fit <- lmodel2(data = discrete_ptb1, pHT_sf15 ~ pHT_spec15, nperm = 99)
+# p_spec_sf <- ggreg2(fit, "pHT_spec15", "pHT_sf15") +
+#   geom_line(aes(x = pHT_spec15, y = pHT_spec15), linetype = 2) +
+#   labs(x=expression(paste("Spectro ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
+#   mytheme + theme(legend.position="bottom")
+# 
+# print(p_spec_sf)
 print(p_spec_sf_corr)
 ```
 <br>
@@ -1196,7 +1147,7 @@ dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET Changed by #057", l
 ```
 
 
-##Final results
+##Final pH results
 
 ```{r, fig.width=12, fig.height=5, echo=FALSE}
 events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:05:08","2015-09-29 09:00:08","2015-12-08 09:05:08","2016-01-07 09:05:08", "2016-03-08 09:05:08", "2016-04-08 08:05:08", "2016-06-03 08:05:08", "2016-07-06 08:05:08","2016-09-06 08:05:08","2016-10-26 08:05:08", "2016-11-08 09:05:08", "2016-12-07 09:05:08", "2017-02-01 09:05:08", "2017-03-22 09:05:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00", "2019-01-07 09:00:00")
