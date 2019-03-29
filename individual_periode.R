@@ -14,7 +14,9 @@ library(scales)
 
 #Before to open a Raw file, please open it in Excel and add the number of deployment and save it.
 
-p <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/Raw_seaFET2_data_2018-11-09_2019-01-07.csv", skip=1,header=F, sep=";", dec=".", as.is=T)
+p <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/Raw_seaFET2_data_2019-01-07_2019-03-27.csv", skip=1,header=F, sep=",", dec=".", as.is=T)
+# add the deployement column
+p$deployment <- as.numeric(38)
 colnames(p)  <- c("Serial num","date", "sampleNumber", "errorFlag", "phEXT","phINT","voltEXT","voltINT", "T_seaF", "humidity","T_int","deployment")
 #colnames(p)  <- c("SerialNum","date","time","phINT","phEXT","T","voltINT","voltEXT","voltThermistor","voltSupply","no","currentSupply","humidity","V_5V","V_ISO","checksum","deployment")
 head(p)
@@ -46,7 +48,7 @@ head(PERIODE)
 str(PERIODE)
 
 #PERIODE  <- filter(PERIODE, date < "2015-03-12 23:00:00")
-write.table(PERIODE,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/seaFET2_data_2018-11-09_2019-01-07.csv",row.names=FALSE,sep=",",dec=".")
+write.table(PERIODE,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/seaFET2_data_2019-01-07_2019-03-27.csv",row.names=FALSE,sep=",",dec=".")
 
 # mettre au format tall et renommer les colonnes du fichier SeaFET
 PERIODE1<-melt(PERIODE, id.vars="date")
@@ -61,4 +63,6 @@ plot <- ggplot(PERIODE1) + geom_point(aes(x=date, y=value, color=variable),size=
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 print(plot)
-ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/Individual_figures/seaFET2_data_2018-11-09_2019-01-07.pdf",plot,height =20, units="cm")
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/Individual_figures/seaFET2_data_2019-01-07_2019-03-27.pdf",plot,height =20, units="cm")
+#pmix(8, 8.01, 0.002560, 1e6, 0.0009090909, S=38, T=14, P=0, Pt=0, Sit=0, k1k2="x", 
+ #    kf="x", ks="d", pHscale="T", b="u74", eos = "eos80", long = 1e+20, lat = 1e+20)
