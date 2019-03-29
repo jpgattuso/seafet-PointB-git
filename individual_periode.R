@@ -17,6 +17,8 @@ library(scales)
 p <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/Raw_seaFET2_data_2019-01-07_2019-03-27.csv", skip=1,header=F, sep=",", dec=".", as.is=T)
 # add the deployement column
 p$deployment <- as.numeric(38)
+write.table(p,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/Individual_data/Raw_seaFET2_data_2019-01-07_2019-03-27.csv",row.names=FALSE,sep=";",dec=".")
+
 colnames(p)  <- c("Serial num","date", "sampleNumber", "errorFlag", "phEXT","phINT","voltEXT","voltINT", "T_seaF", "humidity","T_int","deployment")
 #colnames(p)  <- c("SerialNum","date","time","phINT","phEXT","T","voltINT","voltEXT","voltThermistor","voltSupply","no","currentSupply","humidity","V_5V","V_ISO","checksum","deployment")
 head(p)
