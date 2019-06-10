@@ -1,0 +1,82 @@
+---
+title: "Data processing for Mark Bitter and Lydia Kapsenberg"
+author: "Jean-Pierre Gattuso and Samir Alliouane"
+date: '`r format(Sys.Date(), "%d %B %Y")`'
+output:
+  rmarkdown::html_document:
+    number_sections: false
+---
+
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+library(ggplot2)
+library(seacarb) 
+library(reshape2)
+library(plyr)
+library(tidyr)
+library("lmodel2") # model II regression
+library("dplyr", warn.conflicts = FALSE)
+library(lubridate)
+library(knitr)
+#opts_knit$set(root.dir = '../')
+library(scales)
+library(dygraphs)
+library(xts)
+#define who is the user and define path
+if (Sys.getenv("LOGNAME") == "gattuso") path = "../../pCloud\ Sync/Documents/experiments/exp166_seafet/1b_seafet_pointB/"
+if (Sys.getenv("LOGNAME") == "samir") path = "../../pCloud\ Sync/exp166_seafet/1b_seafet_pointB/"
+
+```
+
+# Introduction
+This document and data file was generated for Mark Bitter and Lydia Kapenberg. The request was to use our high frequency pH (seaFET) data at Point B and compare them with data from the the Thau lagoon (October 2016 - October 2017).
+
+# pH seaFET
+Last pH data available: 2018-04-21. After this date, the instrument was sent to seabird for maintenance.
+
+pH data (pHT_ sfint) have been calibrated against reference samples measured with the spectrophotometric method.
+
+# Conclusion
+Data file is data_bitter_kapsenberg.csv. 
+
+```{r read data, include=FALSE}
+
+all <- read.table(paste0(path, "./pb_data/all_data/continuous_discrete.csv"), header=T, sep=",", dec=".", as.is=T)
+all$date <- ymd_hms(all$date)
+all <- all%>%
+  dplyr::filter(date <= "2017-10-01" & date >= "2016-10-01")%>%
+  dplyr::select(date, T_seaF, pHT_sfint)
+
+write.table(all,paste0(path,"pb_output/data_bitter_kapsenberg.csv"),row.names = FALSE, sep=",", dec=".")
+```
+
+# Plots
+```{r plots, echo=FALSE, warning=FALSE, message=FALSE}
+# pH seaFET
+pH_xts <- dplyr::select(all, date, pHT_sfint)
+pH_xts <- as.xts(pH_xts, order.by=pH_xts$date)
+dygraph(pH_xts, main="pH calibrated", ylab="pH in total scale") %>%
+  dySeries("pHT_sfint", color = "blue", strokeWidth = 0, label = "pH") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+
+# Temp
+temp_xts <- dplyr::select(all,date, T_seaF)
+temp_xts <- as.xts(temp_xts, order.by=temp_xts$date)
+dygraph(temp_xts, main="Temperature", ylab="Temperature in °C") %>%
+  dySeries("T_seaF", color = "blue", strokeWidth = 0, label = "seaFET Temperature") %>%
+      dyHighlight(highlightCircleSize = 8,highlightSeriesBackgroundAlpha =0.2,hideOnMouseOut =TRUE) %>%
+      dyOptions(drawGrid = TRUE, drawPoints = TRUE, pointSize = 2,useDataTimezone = TRUE) %>%
+      dyRangeSelector(height = 30)
+```
+
+#Acknowlegments
+
+**The sailors:** J.-Y Carval, J.-L Prevost, P. Cohen. 
+
+**Point B team:** L. Mousseau, F. Petit, O. Passafiume, M. Durozier, A.-M. Corre, H. De Lary. 
+
+**EOL buoy engineer:** J.-M Grisoni.
+
+**Divers:** G. De Liège and D. Luquet
