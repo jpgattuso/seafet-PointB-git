@@ -268,7 +268,7 @@ body{ /* Normal  */
 }
 </style>
 
-#{.tabset .tabset-fade .tabset-pills}
+# {.tabset .tabset-fade .tabset-pills}
 
 ## Introduction
 To monitor the evolution of pH in the northwestern Mediterranean sea, a seaFET sensor has been installed on the EOL buoy in the Bay of Villefranche-Sur-Mer (France) to get continous measurements of pH in addition to the discrete measurements of $A_\mathrm{T}$ and $C_\mathrm{T}$ (until October 2015) and spectrophotometric pH.
