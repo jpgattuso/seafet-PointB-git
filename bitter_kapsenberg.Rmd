@@ -7,7 +7,7 @@ output:
     number_sections: false
 ---
 
-```{r set-up, echo=FALSE, warning=FALSE, message=FALSE}
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE, include= F}
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 library(ggplot2)
 library(seacarb) 
@@ -27,6 +27,8 @@ if (Sys.getenv("LOGNAME") == "gattuso") path = "../../pCloud\ Sync/Documents/exp
 if (Sys.getenv("LOGNAME") == "samir") path = "../../pCloud\ Sync/exp166_seafet/1b_seafet_pointB/"
 
 ```
+
+# {.tabset .tabset-fade .tabset-pills}
 
 # Introduction
 This document and data file was generated for Mark Bitter and Lydia Kapenberg. The request was to use our high frequency pH (seaFET) data at Point B and compare them with data from the the Thau lagoon (October 2016 - October 2017).
@@ -71,7 +73,7 @@ dygraph(temp_xts, main="Temperature", ylab="Temperature in °C") %>%
       dyRangeSelector(height = 30)
 ```
 
-#Acknowlegments
+# Acknowlegments
 
 **The sailors:** J.-Y Carval, J.-L Prevost, P. Cohen. 
 
