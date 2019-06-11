@@ -268,19 +268,19 @@ body{ /* Normal  */
 }
 </style>
 
-#{.tabset .tabset-fade .tabset-pills}
+# {.tabset .tabset-fade .tabset-pills}
 
 ## Introduction
 To monitor the evolution of pH in the northwestern Mediterranean sea, a seaFET sensor has been installed on the EOL buoy in the Bay of Villefranche-Sur-Mer (France) to get continous measurements of pH in addition to the discrete measurements of $A_\mathrm{T}$ and $C_\mathrm{T}$ (until October 2015) and spectrophotometric pH.
 
 ![ ](../../pCloud Sync/exp166_seafet/3_Images_seafet/2017-01-10_seafet_DeLiege/DSC01795.jpg){width=250px}
 
-##Material and methods
+## Material and methods
 
-###**Continuous measurements**
+### **Continuous measurements**
 The seaFET sensor #007 was bought from Satlantic (Canada). It was deployed at 2 m depth on a holder underneath the EOL buoy on 18 December 2013. The sensor was set on periodic mode with a frequency of pH measurement (total scale) of 1 hour and a burst size of 10. Every two months, the sensor is brought back to the lab, the data downloaded, the batteries checked and changed if needed and the sensor is re-deployed in the field the same day when possible. Since September 11th 2018, a brand new seaFET #1005 with a new software (V2) was deployed on EOL. Only the sample frequency was set to 3600 sec, burst is no more set.
 
-###**Discrete sampling**
+### **Discrete sampling**
 First discrete sampling for $A_\mathrm{T}$ and $C_\mathrm{T}$ started on 2014-07-16. We decided to stop the weekly $A_\mathrm{T}$ and $C_\mathrm{T}$ sampling on 2015-10-15. For calculation of pH (total scale), we use salinity, $C_\mathrm{T}$, $A_\mathrm{T}$ and nutrient correction (Silicate and phosphate) from Point B. We saw that the annual range of $A_\mathrm{T}$ do not affect the pH calculation. However, we still continue to sample for spectrophotometric pH. As a result:
 
 - the file containing the discrete data is now spectro.csv (it used to be intercomparaison_spectro_calc_seafet.csv).
@@ -293,7 +293,7 @@ Calculations of the carbonate system parameters were performed using the R packa
 Exemple of calculation using the "carb" function: 
 carb(15, $A_\mathrm{T}$, $C_\mathrm{T}$, S=Salinity, T=Temperature, P=0, Pt=Phosphate, Sit=Silicate,k1k2="x", kf="x", ks="d", pHscale="T", b="l10"). 
 
-####**Discrete sampling dates**
+#### **Discrete sampling dates**
 Following are the sampling dates and times (in UTC) of discrete samples at the vicinity of the sensor in EOL buoy:
 
   - 2018-09-17: sampling spectro pH for lab at 08:00 (Point B team).
@@ -441,7 +441,7 @@ Following are the sampling dates and times (in UTC) of discrete samples at the v
   - 2014-07-30: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and pH for lab analysis at 08:00.
   - 2014-07-16: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and pH for lab analysis at 08:00.
 
-###**pH spectro measurements**
+### **pH spectro measurements**
 Purified meta Cresol (mCresol) purple powder was bought from Robert Byrne (University of south Florida, FL, rhbyrne@usf.edu). Since November 2017, pure mCresol is supply by Fluidion (France, Dan Angelescu, d.angelescu@fluidion.com). The resulting prepared dye is used to measure pH by spectrophotometric method. We also used the dye on TRIS buffer bought from Andrew Dickson (salinity 35, Reference material for oceanic CO2 measurements from Scripps Institute of Oceanography, San Diego, CA, co2crms@ucsd.edu) at different times (just after preparation of the dye batch and after several months when the batch dye is almost finished) to check the precision of our measurments.
 We used TRIS from Batch 26. Here some TRIS pH results:
 
@@ -462,7 +462,7 @@ Cary60 is now used:
 -	**Batch 8** (newly prepared, 2018-08-16), TRIS pH measurement is **8.1278** (n = 2, sd = 0.000, measured temperature = 23.9°). Theoretical TRIS pH is **8.1280** at T = 23.9° and S = 35.
 
 
-###**Data processing**
+### **Data processing**
 The last Markdown document "seafet_pointB_report_DATE.Rmd":
 
 * reads the 2 months raw datafiles downloaded from seaFET sensor.
@@ -472,7 +472,7 @@ The last Markdown document "seafet_pointB_report_DATE.Rmd":
 * correct pH spectro measurement from lab temperature to *in situ* temperature.
 * correct pH seaFET data with spectro pH measurements according to Bresnahan et al. (2014), see Calibration of seaFET pH.
 
-###**Calibration of seaFET pH**
+### **Calibration of seaFET pH**
 To calibrate the seaFET pH we use the approach described by Bresnahan et al. (2014). We used the 2 functions ("calib" and "calc") that are reported in this paper. This approach was checked with the help of Yui Takeshita from Scripps Institute of Oceanography, San Diego, CA (ytakeshi@ucsd.edu). The final pH spectro and pH calculated from $A_\mathrm{T}$ and $C_\mathrm{T}$ values are normalized with the seaFET temperature in order to compare them with the final corrected seaFET pH value.
 
   
@@ -544,7 +544,7 @@ write.table(TAB,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_da
 ```
 
 ## Results
-###**Raw Continuous measurements**
+### **Raw Continuous measurements**
 Graphic below shows raw pH and voltages (V) data for internal and external reference electrodes and temperature from the sensor. It also shows temperature from the sensor. 
 ```{r Plot continuous measurements, echo=FALSE, warning=FALSE, message=FALSE, out.width='100%'}
  
@@ -583,7 +583,7 @@ print(time_series_cont)
 ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/time_series_dis.png",time_series_dis,height =18, units="cm")
 ```
 
-###**Discrete sampling**
+### **Discrete sampling**
 Graphic and table below show all the weekly interpolated Point B parameters (salinity, temperature, $A_\mathrm{T}$ and $C_\mathrm{T}$, phosphate and silicate).Note that:
 
 * NAs are related to Non Available data because of the in progress deployement, samples not yet measured or problem with measurements.
@@ -600,7 +600,7 @@ dplyr::filter(date <= as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date >= as.PO
 write.table(discrete,"../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
 ```
 
-###**seaFET T° vs Point B T°**
+### **seaFET T° vs Point B T°**
 Regressions are Model II (geometric).
 
 ```{r discrete temperature T_seaF VS T_ptb, echo=FALSE, message=FALSE, out.width="70%", fig.align='left'}
@@ -626,7 +626,7 @@ p_Tptb_Tsf <-  ggreg2(fit, "T_seaF", "T_ptb") +
 print(p_Tptb_Tsf)
 ```
 
-###**Calibration of seaFET pH**
+### **Calibration of seaFET pH**
 
 Plots of E0ext25 and E0int25 returned by the function "pHCalib" are shown below. The mean values of E0ext25 and E0int25 (red and blue circles) are calculated by the "pHCalib" function for each period of deployement. Continuous measurements from April, the 12th to 31st are not shown because of the drift of the sensor due to biofouling. 
 
@@ -762,7 +762,7 @@ print(p_calib_ptb) # Ke0 plot
 <br>
 <br>
 
-###**Delta pH**
+### **Delta pH**
 
 ```{r POINT B deltas plots, echo=FALSE, warning = FALSE, message = FALSE, out.width='100%'}
 # on outliar higlithed after 1st shot : 2015-01-27 remove it
@@ -834,7 +834,7 @@ data quality.”
 
  
 
-###**seaFET pH15° vs calculated pH15°**
+### **seaFET pH15° vs calculated pH15°**
 
 Red circles are considered as outliers and are not taken into consideration for the regression parameters.
 We do not calculate pH after the 2015-08-04 because $A_\mathrm{T}$ and $C_\mathrm{T}$ data from Point B are not still available.
@@ -878,7 +878,7 @@ print(p_sf_cal_corr_ptb)
 <br> 
 <br>
 
-###**seaFET pH15° vs spectro15°**
+### **seaFET pH15° vs spectro15°**
 <br>
 ```{r plots pH seaFET 15 vs spectro 15, fig.keep='all', echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
 ########### seaFET CORRECTED
@@ -904,7 +904,7 @@ print(p_spec_sf_corr)
 <br> 
 <br>
 
-###**spectro15° vs calculated pH15°**
+### **spectro15° vs calculated pH15°**
 <br>
 ```{r plots pH spectro15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
 
@@ -920,7 +920,7 @@ print(p_spec_cal)
 <br> 
 <br>
 
-##Comparaison between EOL and Point B pH
+## Comparaison between EOL and Point B pH
 
 ```{r Comparaison EOL/PtB, echo=FALSE, include = FALSE,warning = FALSE, message = FALSE, out.width="100%"}
 comparaison <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
@@ -994,7 +994,7 @@ print (comparaison_p)
 
 Linear regression was done on EOL and Point B pH data. EOL samples were mostly collected by the Point B team and mostly analysed right after by Samir Alliouane. Point B samples were all collected by the Point B team and analysed right after by Hortense De Lary.
 
-###**pH INT - pH EXT**
+### **pH INT - pH EXT**
 ```{r pH INT - pH EXT, echo=FALSE, warning = FALSE, message = FALSE, out.width='100%'}
 
 seafet_diff <-  seafet_all_ptb %>% 
@@ -1072,7 +1072,7 @@ dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET Changed by #057", l
 ```
 
 
-##Final pH results
+## Final pH results
 
 ```{r, fig.width=12, fig.height=5, echo=FALSE}
 events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:05:08","2015-09-29 09:00:08","2015-12-08 09:05:08","2016-01-07 09:05:08", "2016-03-08 09:05:08", "2016-04-08 08:05:08", "2016-06-03 08:05:08", "2016-07-06 08:05:08","2016-09-06 08:05:08","2016-10-26 08:05:08", "2016-11-08 09:05:08", "2016-12-07 09:05:08", "2017-02-01 09:05:08", "2017-03-22 09:05:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00", "2019-01-07 09:00:00","2019-03-27 09:00:00")
@@ -1236,7 +1236,7 @@ dygraph(seafet_all_ptb_noT_xts) %>%
 #write.table(seafet_all_ptb_T_xts,"../pb_data/all_data/ALLdata_calibrated.csv",row.names=FALSE,sep=",",dec=".")
 ```
 
-##Maintenance
+## Maintenance
 Following are dates and times (in UTC) for every lowering and recovery (deployement period) of the sensor. Changement of batteries and any other problems are also added here:
  
   -  **2019-03-29:** back in water at 09:30.
@@ -1294,7 +1294,7 @@ EOL Buoy cleaning dates:
 
 - **2016-04-22**:finished at 09:00
 
-##Acknowlegments
+## Acknowlegments
 
 The sailors: J.-Y Carval, J.-L Prevost, P. Cohen. 
 
@@ -1304,7 +1304,7 @@ EOL buoy engineer: J.-M Grisoni.
 
 Divers: G. De Liège, D. Luquet.
 
-##Bibliographic references
+## Bibliographic references
 
 Robbins L. L., Wynn J. G., Lisle J. T., Yates K. K., Knorr P. O., Byrne R. H., Liu X., Patsavas M. C., Azetsu-Scott K. \& Takahashi T., 2013. Baseline monitoring of the Western Arctic Ocean estimates 20\% of Canadian Basin surface waters are undersaturated with respect to aragonite. PLoS ONE 8:e73796.
 
