@@ -920,41 +920,49 @@ print(p_spec_cal)
 <br> 
 <br>
 
-## Comparaison between EOL and Point B pH
+## Comparaison between Point B pH calculated (SNAPO) / pH spectro
 
 ```{r Comparaison EOL/PtB, echo=FALSE, include = FALSE,warning = FALSE, message = FALSE, out.width="100%"}
-comparaison <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
+comparaison <- read.table("../../pCloud Sync/exp153_carbonates_point_B/data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
 comparaison$date<- dmy(comparaison$sampling_date, tz="UTC")
 # make the mean for ta
 comparaison <- comparaison %>% 
   dplyr::group_by(date, depth) %>% 
-  dplyr::mutate(ta = mean(ta_dup, na.rm = T)
+  dplyr::mutate(ta = mean(ta_dup, na.rm = T),
+                dic = mean(dic_dup, na.rm = T)
             )
 
 # select variables for EOL/PtB comparaison
 comparaison <- comparaison %>%
-  dplyr::select(date, depth,temp_field, salinity_field, temp_lab_ptb, pH_s_ptb_temp_lab, qflag_pH_s_ptb,temp_lab_eol, pH_s_eol_temp_lab, qflag_pH_s_eol, ta, PO4, SIOH4)#%>%
+  dplyr::select(date, depth,temp_field, salinity_field, temp_lab_ptb, pH_s_ptb_temp_lab, qflag_pH_s_ptb,temp_lab_eol, pH_s_eol_temp_lab, qflag_pH_s_eol, ta, dic,PO4, SIOH4)#%>%
   #dplyr::rename(at_ptb = ta)
 # filtre 0 m + filter flag pH 2 
-# select only days were both pH eol and pH ptB are present to campare
+# # select only days were both pH eol and pH ptB are present to campare
+# comparaison <- comparaison %>%
+#   dplyr::filter( depth == 0 ) %>%
+#   dplyr::filter(qflag_pH_s_ptb == 2)%>%
+#   dplyr::filter( qflag_pH_s_eol == 2 ) 
+
+# select only days were both pH spec and ta/dicB are present with no NA to campare  
 comparaison <- comparaison %>%
-  dplyr::filter( depth == 0 ) %>%
-  dplyr::filter( qflag_pH_s_eol == 2 ) %>%
-  dplyr::filter(qflag_pH_s_ptb == 2)
+  dplyr::select(date, depth,temp_field, salinity_field,temp_lab_ptb, pH_s_ptb_temp_lab,qflag_pH_s_ptb,ta, dic,PO4, SIOH4)%>%
+  dplyr::filter( depth == 0 )%>%
+dplyr::filter(!is.na(temp_field))
+
 # interpolation of missing TA and nutrients
-comparaison <- left_join(comparaison, y%>%select(date, at_ptb), by="date")
-comparaison$at_ptb[is.na(comparaison$at_ptb)] <- mean(comparaison$at_ptb, na.rm= TRUE)
+#comparaison <- left_join(comparaison, y%>%select(date, at_ptb), by="date")
+#comparaison$at_ptb[is.na(comparaison$at_ptb)] <- mean(comparaison$at_ptb, na.rm= TRUE)
 comparaison$PO4[is.na(comparaison$PO4)] <- 0
 comparaison$SIOH4[is.na(comparaison$SIOH4)] <- 0
 
-eol <- comparaison%>%
-  dplyr::filter(!is.na(pH_s_eol_temp_lab) & !is.na(temp_field) & !is.na(salinity_field))
+# eol <- comparaison%>%
+#   dplyr::filter(!is.na(pH_s_eol_temp_lab) & !is.na(temp_field) & !is.na(salinity_field))
 ptb <- comparaison%>%
   dplyr::filter(!is.na(pH_s_ptb_temp_lab)& !is.na(temp_field) & !is.na(salinity_field))
 
 # conversion of pH
-eol$pH_s_eol_Tptb <- pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4)
-ptb$pH_s_ptb_Tptb <- pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$at_ptb*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4)
+#eol$pH_s_eol_Tptb <- pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4)
+ptb$pH_s_ptb_Tptb <- pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$ta*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4)
 #eol <- eol %>% 
 #  dplyr::mutate(pH_s_eol_Tptb = pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4))
 #ptb <- ptb %>% 
@@ -966,29 +974,50 @@ ptb <- ptb %>%
   dplyr::summarize(pH_s_ptb_Tptb = mean(pH_s_ptb_Tptb, na.rm = T),
                    temp_field = mean(temp_field, na.rm = T),
                   salinity_field = mean(salinity_field, na.rm = T),
-                   at_ptb = mean(at_ptb, na.rm = T))
- eol <- eol %>%
-  dplyr::group_by(date)%>%
-  dplyr::summarize(pH_s_eol_Tptb = mean(pH_s_eol_Tptb, na.rm = T),
-                   temp_field = mean(temp_field, na.rm = T),
-                  salinity_field = mean(salinity_field, na.rm = T),
-                   at_ptb = mean(at_ptb, na.rm = T))
-                                     
-comparaison_mean <- left_join(eol, ptb%>%dplyr::select(date,pH_s_ptb_Tptb), by="date")                  
+                   at_ptb = mean(ta, na.rm = T),
+                   dic_ptb = mean(dic, na.rm = T),
+                  PO4 = mean(PO4, na.rm = T),
+                  SIOH4 = mean(SIOH4, na.rm = T))
+ # eol <- eol %>%
+ #  dplyr::group_by(date)%>%
+ #  dplyr::summarize(pH_s_eol_Tptb = mean(pH_s_eol_Tptb, na.rm = T),
+ #                   temp_field = mean(temp_field, na.rm = T),
+ #                  salinity_field = mean(salinity_field, na.rm = T),
+ #                   at_ptb = mean(at_ptb, na.rm = T))
+ #                                     
+#comparaison_mean <- left_join(eol, ptb%>%dplyr::select(date,pH_s_ptb_Tptb), by="date")                  
+
+ # Creer une df avec les lignes sans NAs
+ptb_noNAs <- ptb %>% 
+  dplyr::filter(!is.na(at_ptb))
+
+# Creer une df avec les lignes avec NAs
+ptb_NAs <- ptb %>% 
+  dplyr::filter(is.na(at_ptb) )
+
+# avec T, S ptB et AT DIC ptB
+carb <- carb(15, ptb_noNAs$at_ptb*0.000001, ptb_noNAs$dic_ptb*0.000001, S=ptb_noNAs$salinity_field, T=ptb_noNAs$temp_field, P=0, Pt=ptb_noNAs$PO4*1e-6, Sit=ptb_noNAs$SIOH4*1e-6 ,k1k2="x", kf="x", ks="d", pHscale="T", b="l10")
+ptb_noNAs$pHcalc_ptB<- carb$pH
+
 
 # Regression Model II
 # Plot
-titre <- "EOL pH vs Point B pH"
-fit <- lmodel2(data = comparaison_mean%>%filter(date != "2017-08-01" & date !="2016-09-06" & date !="2017-06-27"& date !="2017-10-24" & date!="2017-08-07"& date!="2017-05-23"), pH_s_eol_Tptb ~ pH_s_ptb_Tptb, nperm = 99)
+titre <- "Calc pH (SNAPO AT/CT) vs Spec pH (POINT B)"
+fit <- lmodel2(data = ptb_noNAs%>%filter(date != "2018-01-18"), pHcalc_ptB ~ pH_s_ptb_Tptb, nperm = 99)
+# fit <- lmodel2(data = comparaison_mean%>%filter(date != "2017-08-01" & date !="2016-09-06" & date !="2017-06-27"& date !="2017-10-24" & date!="2017-08-07"& date!="2017-05-23"), pH_s_eol_Tptb ~ pH_s_ptb_Tptb, nperm = 99)
+
 comparaison_p <-  
-  ggreg2(fit, "pH_s_ptb_Tptb", "pH_s_eol_Tptb") +
+  ggreg2(fit, "pH_s_ptb_Tptb", "pHcalc_ptB") +
   geom_line(aes(x = pH_s_ptb_Tptb, y = pH_s_ptb_Tptb), linetype = 2)  +
-  geom_point(data=comparaison_mean%>%filter(date == "2017-08-01" | date =="2016-09-06"| date =="2017-06-27"|date =="2017-10-24"|date=="2017-08-07" | date=="2017-05-23"), aes(x = pH_s_ptb_Tptb, y = pH_s_eol_Tptb),colour="red", size=3) +
-  mytheme+labs(x="pH PointB", y="pH EOL") +
+  geom_point(data=ptb_noNAs%>%filter(date == "2018-01-18"), aes(x = pH_s_ptb_Tptb, y = pHcalc_ptB),colour="red", size=3) +
+  mytheme+labs(x="pH Spec", y="pH Calc") +
    scale_x_continuous(breaks = seq(7.9,8.3,0.05))  +
    scale_y_continuous(breaks = seq(7.9,8.3,0.05)) + theme(legend.position="bottom", axis.text.x = element_text(angle = 45, hjust = 1)) 
 #  geom_point(data=temperature_Out, aes(x=pH_s_ptb_Tptb,y=pH_s_eol_Tptb), colour = "red", size=5)
-print (comparaison_p)
+
+print(comparaison_p)
+
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/comparaison_pHcalc_pHsepc.png",comparaison_p,height =18, units="cm")
 
 ```
 
