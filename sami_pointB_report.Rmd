@@ -1,0 +1,1328 @@
+---
+title: "Carbonate chemistry, Point B (SAMI data)"
+author: "Jean-Pierre Gattuso and Samir Alliouane"
+date: '`r format(Sys.Date(), "%d %B %Y")`'
+output:
+  rmarkdown::html_document:
+    theme: paper
+    number_sections: false
+---
+
+```{r set-up, echo=FALSE, warning=FALSE, message=FALSE, include =FALSE}
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+library(ggplot2)
+library(seacarb) 
+library(reshape2)
+library(plyr)
+library(zoo)
+library(tidyr)
+library("lmodel2") # model II regression
+library("dplyr", warn.conflicts = FALSE)
+library(lubridate)
+library(knitr)
+#opts_knit$set(root.dir = '../')
+library(scales)
+library(dygraphs)
+library(xts)
+library(stringr)
+```
+
+```{r define_functions, echo=FALSE}
+rm(list = ls())
+## theme to format the plots
+Sys.setenv(TZ='UTC') # on utilise UTC
+
+#################### Regression function 
+####
+# function regression plot with model II equation (MA) in title
+## Dans labs ajout de la variable TITRE pour mettre titre avant chaque graphe
+ggreg2 <- function (fit, xdata, ydata) { # x and y are the names of the variables
+  fit_data <- data.frame(fit$x, fit$y)
+  colnames(fit_data) = c(xdata, ydata)
+reg <- fit$regression.results[2,] #one selects MA only
+intercept <- reg$Intercept
+slope <- reg$Slope
+  ggplot(data = fit_data, aes_string(x = xdata, y = ydata)) + 
+  geom_point(size = 3, col = "blue") +
+  geom_abline(aes(intercept = fit$regression.results[2,2], slope = fit$regression.results[2,3]),
+              colour = "blue")  + 
+  labs(title = paste(titre,"\n Adj R2 = ", signif(fit$rsquare, 3),
+                     "; Intercept =", signif(intercept, 3),
+                     "; Slope =", signif(slope, 3),
+                     "; P =", signif(fit$P.param, 3)))
+}
+
+mytheme <- theme_bw() +
+  theme(axis.text.x=element_text(size=16, color="black"),
+        axis.title.x=element_text(face="bold", size=16),
+        axis.text.y=element_text(size=16, color="black"),
+        axis.title.y=element_text(face="bold", size=16),
+        plot.title = element_text(face="bold", size=14)
+)
+
+```
+
+
+```{r make data file, echo=FALSE, warning=FALSE, message=FALSE}
+# data prepare --> Look at "2015-06-02_seafet_pointB.R" in "pb_R" folder
+#---------- Lecture des fichiers "Raw_seaFET..." un par un via la boucle.
+# Dataframe "TAB" is done.
+
+file_list <- list.files(path  = "../../pCloud Sync/piSami-pH/sami_data/sami_processed/Salinity_corrected/PointB/", pattern = "Raw_SAMI.*.txt")
+
+if (length(file_list) == 0) {stop()} # script does not run if there is no data file to read
+ii <- 0
+for (file in file_list){ 
+  ii <- ii + 1
+  tmp <- read.table(paste("../../pCloud Sync/piSami-pH/sami_data/sami_processed/Salinity_corrected/PointB/", file, sep = ""), header = F, dec = ".", as.is = T, sep = "\t", skip = 4, fill = TRUE)
+  if (ii == 1) {z <- tmp} else {z <- rbind(z, tmp)}
+}
+
+colnames(z)  <- c("datetime","pH", "pH_error", "Temp_INT", "Temp_INT","flag")
+
+# add deployment period = Fisrt, Add manualy the deployement number in the title file and take last digit in the title file
+z$deployment <- as.numeric(substr(str_extract(file, "-[0-9]"),2,2))
+
+# Convert datetime
+z$datetime <- mdy_hms(z$datetime)
+
+TAB <- z 
+
+# supprimer les données erronées 
+TAB<- TAB %>% 
+    dplyr::mutate(pHINT = ifelse( date > as.POSIXct("2018-04-21 21:00:00",tz="UTC") & date <= as.POSIXct("2018-05-02 09:00:08",tz="UTC") , NA, pHINT), 
+                  Eint = ifelse( date > as.POSIXct("2018-04-21 21:00:00",tz="UTC") & date <= as.POSIXct("2018-05-02 09:00:08",tz="UTC") , NA, Eint),
+                  pHEXT = ifelse( date > as.POSIXct("2018-04-21 21:00:00",tz="UTC") & date <= as.POSIXct("2018-05-02 09:00:08",tz="UTC") , NA, pHEXT), 
+                  Eext = ifelse( date > as.POSIXct("2018-04-21 21:00:00",tz="UTC") & date <= as.POSIXct("2018-05-02 09:00:08",tz="UTC") , NA, Eext)) 
+
+#save(TAB, file = "../pb_data/all_data/seaFET_ptb.Rdata") 
+```
+
+```{r Continuous + Point B data, echo=FALSE}
+# La mise à jour du fichier "Data_DIC.csv" pour AT et CT dépend des envois des echantillons pour analyses au SNAPCO CO2 (Paris) par Laure Mousseau/Maia Durozier (tous les 6 mois environs). 
+# mean of T, S at, dic, PO4, Si, per day. Extend data from mid-week before the value to next mid-week.
+# Interpolate data missing with approx().
+# Dataframe "TAB" is updated.
+
+#---------- ouvrir données POINT B Data_DIC
+# les heures des donnees ptB ont ete ajoutées au fichier "y"
+y <- read.table("../../pCloud Sync/exp153_carbonates_point_B/data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
+#y <- read.table("../../../shared_data_dic/Data_DIC.csv", header=T, sep=";", dec=".", as.is=T)
+#y$date <- paste(y$Date, "08:00:08", sep=" ")
+y$date<- dmy(y$sampling_date, tz="UTC")
+
+# to add the chl a data file to y
+#c <- read.table("./pb_data/all_data/STD-Chl-2007-2015-JPG.csv", header=T, sep=";", dec=".", as.is=T)
+#head(c)
+#c <- c %>%
+#  filter(depth == 1 | depth == 50 )
+#c$depth <- ifelse(c$depth == 1, 0, c$depth ) 
+#c$date<- as.POSIXct(strptime(c$date, format="%Y/%m/%d"), tz="UTC")
+#y <- left_join(y,c[,c(1,3,8,9)], by=c("date","depth")) 
+#write.table(y,"pb_data/all_data/Data_DIC.csv",row.names=FALSE,sep=",",dec=".")
+
+# filtre 0 m
+y <- y %>% 
+  dplyr::filter(depth == 0 )
+
+#y <- y[,c(25, 4,5 ,11,13,17,19,21,23,26)]
+y <- y[,c(31, 4,5 ,16,18,21,23,25,27,29)]
+colnames(y)  <- c("date","S_ptb","T_ptb", "at_ptb", "dic_ptb","NO3_ptb", "NO2_ptb", "PO4_ptb", "Si_ptb","Chla_ptb")
+
+y <- y %>% 
+  dplyr::group_by(date) %>% 
+  dplyr::summarize(S_ptb = mean(S_ptb, na.rm = T),
+            T_ptb = mean(T_ptb, na.rm = T),
+            at_ptb = mean(at_ptb, na.rm = T),
+            dic_ptb = mean(dic_ptb, na.rm = T),
+            NO3_ptb = mean(NO3_ptb, na.rm = T),
+            NO2_ptb = mean(NO2_ptb, na.rm = T),
+            PO4_ptb = mean(PO4_ptb, na.rm = T),
+            Si_ptb = mean(Si_ptb, na.rm = T),
+            Chla_ptb = mean(Chla_ptb, na.rm = T)
+            )
+#For discrete plot
+discrete_p <- y %>%
+  dplyr::select(date, S_ptb, T_ptb, at_ptb, dic_ptb, PO4_ptb, Si_ptb)
+discrete_p <- melt(discrete_p, id.vars="date")
+
+time_series_dis <- ggplot(discrete_p) + geom_point(aes(x=date, y=value, color=variable),size=0.5) +
+  facet_grid(variable~., scales="free_y") + 
+  theme_bw()+ xlab("Time")+ylab("")+
+  scale_colour_discrete(guide="none")
+
+# La salinité d'un mardi 08:00 s'etendra avant et apres en fonction de la date pH la plus proche de la date salinité.
+# Environ 3 jours avant et 3 jours apres = meme salinité du mardi.
+# les dates de salinité en secondes pour faire la boucle
+dateY <- as.numeric(y$date)
+# vecteur vide qui au final aura pour longueur le nombre de dates de z
+salins <- NULL  
+dicptb <- NULL
+temptb <- NULL
+PO4ptb <- NULL
+Siptb <- NULL
+chlaptb <- NULL
+atptb <- NULL
+
+# boucle sur les dates
+for(i in 1:length(z$date)) {
+  # on transforme la date en numérique
+  dateZ <- as.numeric(z$date[i])
+  # on cherche parmi les dates de salinité l indice K le plus proche de cette date "pH"
+  k <- which.min(abs(dateZ - dateY))
+  #cat(format(z$date[i]), format(y$date[k]), y$S_ptb[k], "\n")
+  # on sélectionne la valeur de salinité correpondant à cet indice k
+  salins <- append(salins, y$S_ptb[k])
+  temptb <- append(temptb, y$T_ptb[k])
+  atptb <- append(atptb, y$at_ptb[k])
+    dicptb <- append(dicptb, y$dic_ptb[k])
+Siptb <- append(Siptb, y$Si_ptb[k])
+PO4ptb <- append(PO4ptb, y$PO4_ptb[k])
+chlaptb <- append(chlaptb, y$Chla_ptb[k])
+}
+# coller la S_ptb au tableau TAB
+TAB$S_ptb <- salins
+TAB$T_ptb <- temptb
+TAB$at_ptb <- atptb
+TAB$dic_ptb <- dicptb
+TAB$PO4_ptb <- PO4ptb
+TAB$Si_ptb <- Siptb
+TAB$Chla_ptb <- chlaptb
+
+#_____________Interpolation de S, T, at, dic, PO4 et Si ptB__________
+# pour eviter une erreur avec les NA pour faire tourner pHinsi, on remplace les NA de at_ptb et dic_ptb par les valeurs moyennes de ces parametres
+
+Tinterp <-approx(TAB$date, TAB$T_ptb, xout=TAB$date, method="linear", rule=2)
+names(Tinterp) <- c("date", "T_ptb")
+Tinterp <- as.data.frame(Tinterp)
+TAB$T_ptb <- Tinterp$T_ptb
+
+Sinterp <-approx(TAB$date, TAB$S_ptb, xout=TAB$date, method="linear", rule=2)
+names(Sinterp) <- c("date", "S_ptb")
+Sinterp <- as.data.frame(Sinterp)
+TAB$S_ptb <- Sinterp$S_ptb
+
+atinterp <-approx(TAB$date, TAB$at_ptb, xout=TAB$date, method="linear", rule=2)
+names(atinterp) <- c("date", "at_ptb")
+atinterp <- as.data.frame(atinterp)
+atinterp$at_ptb <- atinterp$at_ptb
+
+dicinterp <-approx(TAB$date, TAB$dic_ptb, xout=TAB$date, method="linear", rule=2)
+names(dicinterp) <- c("date", "dic_ptb")
+dicinterp <- as.data.frame(dicinterp)
+TAB$dic_ptb <- dicinterp$dic_ptb
+
+PO4interp <-approx(TAB$date, TAB$PO4_ptb, xout=TAB$date, method="linear", rule=2)
+names(PO4interp) <- c("date", "PO4_ptb")
+PO4interp <- as.data.frame(PO4interp)
+TAB$PO4_ptb <- PO4interp$PO4_ptb
+
+Siinterp <-approx(TAB$date, TAB$Si_ptb, xout=TAB$date, method="linear", rule=2)
+names(Siinterp) <- c("date", "Si_ptb")
+Siinterp <- as.data.frame(Siinterp)
+TAB$Si_ptb <- Siinterp$Si_ptb
+
+Chlainterp <-approx(TAB$date, TAB$Chla_ptb, xout=TAB$date, method="linear", rule=2)
+names(Chlainterp) <- c("date", "Chla_ptb")
+Chlainterp <- as.data.frame(Chlainterp)
+TAB$Chla_ptb <- Chlainterp$Chla_ptb
+
+TAB$at_ptb[is.na(TAB$at_ptb)] <- mean(TAB$at_ptb, na.rm= TRUE)
+TAB$dic_ptb[is.na(TAB$dic_ptb)] <- mean(TAB$dic_ptb, na.rm= TRUE)
+TAB$datetime <- TAB$date
+#------------------ SAVING DATA dans all_data/
+write.table(TAB,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/time-series.csv",row.names = FALSE, sep=",", dec=".")
+```
+
+<style type="text/css">
+body{ /* Normal  */
+      font-size: 18px;
+}
+</style>
+
+# {.tabset .tabset-fade .tabset-pills}
+
+## Introduction
+To monitor the evolution of pH in the northwestern Mediterranean sea, a seaFET sensor has been installed on the EOL buoy in the Bay of Villefranche-Sur-Mer (France) to get continous measurements of pH in addition to the discrete measurements of $A_\mathrm{T}$ and $C_\mathrm{T}$ (until October 2015) and spectrophotometric pH.
+
+![ ](../../pCloud Sync/exp166_seafet/3_Images_seafet/2017-01-10_seafet_DeLiege/DSC01795.jpg){width=250px}
+
+## Material and methods
+
+### **Continuous measurements**
+The seaFET sensor #007 was bought from Satlantic (Canada). It was deployed at 2 m depth on a holder underneath the EOL buoy on 18 December 2013. The sensor was set on periodic mode with a frequency of pH measurement (total scale) of 1 hour and a burst size of 10. Every two months, the sensor is brought back to the lab, the data downloaded, the batteries checked and changed if needed and the sensor is re-deployed in the field the same day when possible. Since September 11th 2018, a brand new seaFET #1005 with a new software (V2) was deployed on EOL. Only the sample frequency was set to 3600 sec, burst is no more set.
+
+### **Discrete sampling**
+First discrete sampling for $A_\mathrm{T}$ and $C_\mathrm{T}$ started on 2014-07-16. We decided to stop the weekly $A_\mathrm{T}$ and $C_\mathrm{T}$ sampling on 2015-10-15. For calculation of pH (total scale), we use salinity, $C_\mathrm{T}$, $A_\mathrm{T}$ and nutrient correction (Silicate and phosphate) from Point B. We saw that the annual range of $A_\mathrm{T}$ do not affect the pH calculation. However, we still continue to sample for spectrophotometric pH. As a result:
+
+- the file containing the discrete data is now spectro.csv (it used to be intercomparaison_spectro_calc_seafet.csv).
+- the script seafet_pointB_report_XXXX.Rmd has been simplified: all figures that used $C_\mathrm{T}$ and $A_\mathrm{T}$ data taken at the vicinity of the sensor and measured at LOV or at SNAPO-CO2 are now omitted. Only pH spectro (total scale) discrete samples were kept.
+
+Samples were collected by Alliouane Samir (noted below if different) from 2 m depth using a 6 L Niskin bottle in the vicinity of the pH sensor and at the same moment of a measurement (+/- 15 min). pH samples were transferred to a 500 ml borosilicate glass bottle avoiding any bubble and with overflowing. They are directly measured at lab, spectrophotometrically in 10 cm path length quartz cells (Hellma Analytics, Germany) with a spectrophotometer (USB2000+, Ocean optics, USA) and using a dye (meta Cresol purified dye, University of South Florida). Spectrophotometric pH is measured according to Dickson et al. (2007). Since November 2017, the spectrophotometer was changed by a Cary60 (Agilent technologies).
+
+Calculations of the carbonate system parameters were performed using the R package `r packageVersion("seacarb")`  (Lavigne \& Gattuso, 2011). 
+
+Exemple of calculation using the "carb" function: 
+carb(15, $A_\mathrm{T}$, $C_\mathrm{T}$, S=Salinity, T=Temperature, P=0, Pt=Phosphate, Sit=Silicate,k1k2="x", kf="x", ks="d", pHscale="T", b="l10"). 
+
+#### **Discrete sampling dates**
+Following are the sampling dates and times (in UTC) of discrete samples at the vicinity of the sensor in EOL buoy:
+
+  - 2018-09-17: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-06-19: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-06-12: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-06-04: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-05-29: sampling spectro pH for lab at 07:00 (Point B team).
+  - 2018-05-22: sampling spectro pH for lab at 07:00 (Point B team).
+  - 2018-05-14: sampling spectro pH for lab at 07:00 (Point B team).
+  - 2018-05-07: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-05-02: sampling spectro pH for lab at 08:00.
+  - 2018-04-24: sampling spectro pH for lab at 07:00 (Point B team).
+  - 2018-04-17: sampling spectro pH for lab at 07:00 (Point B team).
+  - 2018-04-04: sampling spectro pH for lab at 07:00 (Point B team).
+  - 2018-03-27: sampling spectro pH for lab at 07:00 (Point B) and 08:00.
+  - 2018-03-20: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-03-14: sampling spectro pH for lab at 09:00 (Point B team).
+  - 2018-03-07: sampling spectro pH for lab at 09:00 (Point B team).
+  - 2018-02-27: sampling spectro pH for lab at 09:00 (Point B team).
+  - 2018-02-19: sampling spectro pH for lab at 09:00 (Point B team).
+  - 2018-02-13: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-02-06: sampling spectro pH for lab at 09:00 (Point B team).
+  - 2018-01-30: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-01-23: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-01-18: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-01-10: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-01-03: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2018-01-02: sampling spectro pH for lab at 10:00 (Point B team).
+  - 2017-12-19: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2017-12-13: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2017-12-04: sampling spectro pH for lab at 08:00 (Point B team).
+  - 2017-11-30: sampling spectro pH for lab at 09:00.
+  - 2017-09-15: sampling spectro pH for lab at 08:00.
+  - 2017-08-29: sampling spectro pH for lab at 08:00.
+  - 2017-06-14: pH spectro was not measured because of the lack of data this day.
+  - 2017-05-02: sampling spectro pH for lab at 07:00.
+  - 2017-03-22: sampling spectro pH for lab at 07:00.
+  - 2017-02-01: sampling spectro pH for lab at 07:00.
+  - 2017-01-31: sampling spectro pH for lab at 08:00.
+  - 2017-01-24: sampling spectro pH for lab at 08:00.
+  - 2017-01-17: sampling spectro pH for lab at 08:00.
+  - 2017-01-10: sampling spectro pH for lab at 08:00.
+  - 2017-01-03: sampling spectro pH for lab at 08:00.
+  - 2016-12-21: sampling spectro pH for lab at 09:00.
+  - 2016-12-13: sampling spectro pH for lab at 09:00.
+  - 2016-12-07: sampling spectro pH for lab at 09:00.
+  - 2016-11-08: sampling spectro pH for lab at 09:00.
+  - 2016-11-02: sampling spectro pH for lab at 08:00.
+  - 2016-10-26: sampling spectro pH for lab at 08:00.
+  - 2016-10-18: sampling spectro pH for lab at 07:00.
+  - 2016-10-11: sampling spectro pH for lab at 07:00.
+  - 2016-10-04: sampling spectro pH for lab at 08:00.
+  - 2016-09-27: sampling spectro pH for lab at 07:00.
+  - 2016-09-20: sampling spectro pH for lab at 08:00 (done by Point B team, measured the 2016-09-27).
+  - 2016-09-13: sampling spectro pH for lab at 08:00 (done by Point B team, measured the 2016-09-27).
+  - 2016-09-06: sampling spectro pH for lab at 08:00.
+  - 2016-08-31: sampling spectro pH for lab at 07:00.
+  - 2016-08-23: sampling spectro pH for lab at 07:00.
+  - 2016-08-16: sampling spectro pH for lab at 07:00 (done by Point B team, measured the 2016-08-17).
+  - 2016-08-02: sampling spectro pH for lab at 09:00 (done by Point B team, measured the 2016-08-17).
+  - 2016-07-26: sampling spectro pH for lab at 07:00 (done by Point B team, measured the 2016-08-17).
+  - 2016-07-19: sampling spectro pH for lab at 07:00.
+  - 2016-07-12: sampling spectro pH for lab at 08:00.
+  - 2016-07-06: sampling spectro pH for lab at 09:00.
+  - 2016-07-05: sampling spectro pH for lab at 06:00.
+  - 2016-06-28: sampling spectro pH for lab at 07:00.
+  - 2016-06-21: sampling spectro pH for lab at 07:00.
+  - 2016-06-14: sampling spectro pH for lab at 07:00.
+  - 2016-06-07: sampling spectro pH for lab at 07:00.
+  - 2016-06-03: sampling spectro pH for lab at 07:00.
+  - 2016-06-01: sampling spectro pH for lab at 07:00.
+  - 2016-05-24: sampling spectro pH for lab at 07:00 (done by Point B team).
+  - 2016-05-17: sampling spectro pH for lab at 07:00.
+  - 2016-05-10: sampling spectro pH for lab at 07:00.
+  - 2016-05-03: sampling spectro pH for lab at 07:00.
+  - 2016-04-25: sampling spectro pH for lab at 08:00.
+  - 2016-04-19: sampling spectro pH for lab at 07:00.
+  - 2016-04-12: sampling spectro pH for lab at 07:00.
+  - 2016-04-05: sampling spectro pH for lab at 07:00.
+  - 2016-03-29: sampling spectro pH for lab at 06:00.
+  - 2016-03-22: sampling spectro pH for lab at 08:00 (done by Point B team).
+  - 2016-03-15: sampling spectro pH for lab at 08:00 (done by Point B team).
+  - 2016-03-08: sampling spectro pH for lab at 10:00.
+  - 2016-03-01: sampling spectro pH for lab at 09:00.
+  - 2016-02-23: sampling spectro pH for lab at 08:00 (done by Point B team).
+  - 2016-02-16: sampling spectro pH for lab at 08:00 (done by Point B team).
+  - 2016-02-09: sampling spectro pH for lab at 09:00.
+  - 2016-02-02: sampling spectro pH for lab at 09:00 (done by Point B team).
+  - 2016-01-26: sampling spectro pH for lab at 08:00.
+  - 2016-01-19: sampling spectro pH for lab at 08:00.
+  - 2016-01-05: sampling spectro pH for lab at 09:00.
+  - 2015-12-22: sampling spectro pH for lab at 09:00 (done by Point B team).
+  - 2015-12-15: sampling spectro pH for lab at 09:00.
+  - 2015-12-08: sampling spectro pH for lab at 09:00.
+  - 2015-11-24: sampling spectro pH for lab at 09:30 
+  - 2015-11-17: sampling spectro pH for lab at 09:30 (done by Point B team).
+  - 2015-11-10: sampling spectro pH for lab at 09:30 (done by Point B team).
+  - 2015-11-03: sampling spectro pH for lab at 09:30 (done by Point B team).
+  - 2015-10-27: sampling spectro pH for lab at 09:00.
+  - 2015-10-20: sampling spectro pH for lab at 08:00.
+  - 2015-10-13: sampling spectro pH for lab at 08:00.
+  - 2015-10-15: We decided to stop LOV and SNAPO-CO2 samplings
+  - 2015-09-15: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 07:00 (done by Point B team).
+  - 2015-09-08: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:00.
+  - 2015-09-01: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:00
+  - 2015-08-25: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:00 (done by Point B team).
+  - 2015-08-11: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 07:00 (done by Point B team).
+  - 2015-08-04: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:00.
+  - 2015-07-28: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:00
+  - 2015-07-21: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 06:44 (done by Point B team).
+  - 2015-07-15: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 07:15 (done by Point B team).
+  - 2015-07-06: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:00.
+  - 2015-06-30: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:00.
+  - 2015-06-22: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:00.
+  - 2015-06-16: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:00.
+  - 2015-06-09: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 12:00. 
+  - 2015-06-01: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:00.  
+  - 2015-05-26: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:00. 
+  - 2015-05-19: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:00.  
+  - 2015-05-12: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 06:15.  
+  - 2015-05-05: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00. 
+  - 2015-04-21: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:20.  
+  - 2015-03-31: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 07:00.  
+  - 2015-03-24: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.  
+  - 2015-03-17: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.  
+  - 2015-03-03: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 09:00. 
+  - 2015-02-24: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 10:00.  
+  - 2015-02-24: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.  
+  - 2015-02-10: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.  
+  - 2015-02-03: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 09:00.  
+  - 2015-01-27: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.  
+  - 2015-01-20: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 09:05.  
+  - 2015-01-12: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectro pH for lab at 08:20.  
+  - 2015-01-06: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:10.  
+  - 2014-12-22: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:20.
+  - 2014-12-19: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:30.  
+  - 2014-12-09: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab at 08:20 (done by Point B team). No spectro pH sample.
+  - 2014-12-02: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 08:20. 
+  - 2014-11-20: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.
+  - 2014-10-29: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 09:00.	
+  - 2014-10-14: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 07:00.
+  - 2014-09-30: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 + lab and spectro pH for lab at 07:00.
+  - 2014-09-15: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and spectrophotometric pH for lab measurements.
+  - 2014-09-02: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ for SNAPO-CO2 at 08:00.
+  - 2014-07-30: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and pH for lab analysis at 08:00.
+  - 2014-07-16: sampling $C_\mathrm{T}$, $A_\mathrm{T}$ and pH for lab analysis at 08:00.
+
+### **pH spectro measurements**
+Purified meta Cresol (mCresol) purple powder was bought from Robert Byrne (University of south Florida, FL, rhbyrne@usf.edu). Since November 2017, pure mCresol is supply by Fluidion (France, Dan Angelescu, d.angelescu@fluidion.com). The resulting prepared dye is used to measure pH by spectrophotometric method. We also used the dye on TRIS buffer bought from Andrew Dickson (salinity 35, Reference material for oceanic CO2 measurements from Scripps Institute of Oceanography, San Diego, CA, co2crms@ucsd.edu) at different times (just after preparation of the dye batch and after several months when the batch dye is almost finished) to check the precision of our measurments.
+We used TRIS from Batch 26. Here some TRIS pH results:
+
+- **Batch 1** (new solution, 2014-05-14), TRIS pH measurement is **8.1715** (n = 3, sd = 0.002, measured temperature = 22.3°). Theoretical TRIS pH is **8.1853** at T = 22.3° and S = 38.
+- **Batch 2** (new solution, 2015-03-18), TRIS pH measurement is **8.1828** (n = 2, sd = 0.014, measured temperature = 22.0°). Theoretical TRIS pH is **8.1879** at T = 22.0° and S = 35.
+- **Batch 3** (new solution, 2015-04-21), TRIS pH measurement is **8.1894** (n = 3, sd = 0.006, measured temperature = 22.1°). Theoretical TRIS pH is **8.1848** at T = 22.1° and S = 35.
+- **Batch 3** (old solution, 2015-10-21), TRIS pH measurement is **8.1899** (n = 2, sd = 0.003, measured temperature = 22.1°). Theoretical TRIS pH is **8.1848** at T = 22.1° and S = 35.
+- **Batch 4** (newly prepared, 2015-10-21), TRIS pH measurement is **8.1864** (n = 2, sd = 0.006, measured temperature = 22.1°). Theoretical TRIS pH is **8.1848** at T = 22.1° and S = 35.
+- **Batch 5** (newly prepared, 2016-08-22), TRIS pH measurement is **8.1821** (n = 7, sd = 0.003, measured temperature = 22.4°). Theoretical TRIS pH is **8.1753** at T = 22.4° and S = 35.
+-	**Batch 5** (old solution, 2017-03-23), TRIS pH measurement is **8.1772** (n = 2, sd = 0.008, measured temperature = 22.2°). Theoretical TRIS pH is **8.1816** at T = 22.2° and S = 35.
+-	**Batch 6** (newly prepared, 2017-03-23), TRIS pH measurement is **8.1974** (n = 2, sd = 0.005, measured temperature = 21.9°). Theoretical TRIS pH is **8.1910** at T = 21.9° and S = 35.
+-	**Batch 6** (old solution, 2017-11-21), no measurement because of contamination of the left dyr solution with acidic seawater.
+-	**Batch 7** (newly prepared, 2017-11-21), TRIS pH measurement is **8.1615** (n = 2, sd = 0.008, measured temperature = 22.4°). Theoretical TRIS pH is **8.1753** at T = 22.4° and S = 35.
+-	**Batch 7** (newly prepared #2, 2017-11-21), TRIS pH measurement is **8.1738** (n = 2, sd = 0.009, measured temperature = 22.2°). Theoretical TRIS pH is **8.1816** at T = 22.2° and S = 35.
+
+Cary60 is now used:
+-	**Batch 7** (old solution, 2018-08-16), TRIS pH measurement is **8.1194** (n = 2, sd = 0.007, measured temperature = 24.2°). Theoretical TRIS pH is **8.1186** at T = 24.2° and S = 35.
+-	**Batch 8** (newly prepared, 2018-08-16), TRIS pH measurement is **8.1278** (n = 2, sd = 0.000, measured temperature = 23.9°). Theoretical TRIS pH is **8.1280** at T = 23.9° and S = 35.
+
+
+### **Data processing**
+The last Markdown document "seafet_pointB_report_DATE.Rmd":
+
+* reads the 2 months raw datafiles downloaded from seaFET sensor.
+* creates a new file with the right date format and useful columns of the 2 months period.
+* reads the file "pb_data/all_data/Data_DIC.csv" in order to add salinity, temperature, $A_\mathrm{T}$, $C_\mathrm{T}$ and nutrients from Point B. This file must be updated from the weekly measurements of salinity and temperature Point B data. Note that those parameters, taken each tuesday from Point B, are weekly interpolated. Measurements of $A_\mathrm{T}$, $C_\mathrm{T}$ and nutrients are updated every 6 months after analysis.
+* reads the file "spectro.csv" in order to add discrete pH data.
+* correct pH spectro measurement from lab temperature to *in situ* temperature.
+* correct pH seaFET data with spectro pH measurements according to Bresnahan et al. (2014), see Calibration of seaFET pH.
+
+### **Calibration of seaFET pH**
+To calibrate the seaFET pH we use the approach described by Bresnahan et al. (2014). We used the 2 functions ("calib" and "calc") that are reported in this paper. This approach was checked with the help of Yui Takeshita from Scripps Institute of Oceanography, San Diego, CA (ytakeshi@ucsd.edu). The final pH spectro and pH calculated from $A_\mathrm{T}$ and $C_\mathrm{T}$ values are normalized with the seaFET temperature in order to compare them with the final corrected seaFET pH value.
+
+  
+```{r discrete LOV data, echo=FALSE}
+# Salinity from ptB is added to data
+# dataframe "discrete" is made.
+# dataframe "TAB" is at the end of the chunk updated with discrete data (TAB = TAB + discrete)
+x <- read.table("../../pCloud Sync/exp166_seafet/8_Intercomparaison/spectro.csv", header=T, sep=",", dec=".", as.is=T)
+x$date<- ymd_hms(x$date, tz="UTC")
+x$date_measure <- ymd(x$date_measure, tz="UTC")
+#   Moyennes des 3 parametres en fonction de la profondeur et du jour.
+discrete <- ddply(x, .(date), summarise,
+              pHspectro_Tlab=mean(pHspectro_Tlab, na.rm=TRUE),
+              Tlab=mean(Tlab, na.rm=TRUE)
+)
+
+# Ajout des donnes seaFET et point B aux données LOV.
+discrete <- left_join(discrete, TAB%>%select(-humidity, -voltSupply), by="date")
+#discrete <- left_join(discrete, TAB[, -c(7:8)], by="date")
+
+# Creer une df avec les lignes sans NAs
+discrete_noNAs <- discrete %>% 
+  dplyr::filter(!is.na(T_ptb))
+
+# Creer une df avec les lignes avec NAs
+discrete_NAs <- discrete %>% 
+  dplyr::filter(is.na(T_ptb) |  is.na(Eext))
+
+# avec T, S ptB et AT DIC ptB
+carb <- carb(15, discrete_noNAs$at_ptb*0.000001, discrete_noNAs$dic_ptb*0.000001, S=discrete_noNAs$S_ptb, T=discrete_noNAs$T_ptb, P=0, Pt=discrete_noNAs$PO4_ptb*1e-6, Sit=discrete_noNAs$Si_ptb*1e-6 ,k1k2="x", kf="x", ks="d", pHscale="T", b="l10")
+discrete_noNAs$pHcalc_ptB<- carb$pH
+
+
+# On ajoute 1 colonne de NA dans discrete_Nas pour pouvoir recoller les 2 df pour avoir toutes les valeurs.
+discrete_NAs$pHcalc_ptB <- NA
+discrete <- rbind(discrete_NAs, discrete_noNAs)
+discrete <- dplyr::arrange(discrete, date)
+discrete$datetime <- ymd_hms(discrete$date, tz = "UTC")
+
+
+# ---------Convert spectro to insitu T ptB
+# Creer une df avec les lignes sans NAs
+discrete_noNAs <- discrete %>% 
+  dplyr::filter(!is.na(pHspectro_Tlab)) %>% 
+  dplyr::filter(!is.na(T_ptb)) #%>% 
+# Creer une df avec les lignes avec NAs
+discrete_NAs <- discrete %>% 
+  dplyr::filter(is.na(pHspectro_Tlab) |  is.na(T_ptb))
+# Conversion
+discrete_noNAs <- discrete_noNAs %>% 
+  dplyr::mutate(pHspec_Tptb = pHinsi(pH=discrete_noNAs$pHspectro_Tlab,ALK=discrete_noNAs$at_ptb*1e-6, Tinsi=discrete_noNAs$T_ptb, Tlab=discrete_noNAs$Tlab, S=discrete_noNAs$S_ptb,Pt=0,Sit=0)
+)
+               
+# On recolle les 2 df pour avoir toutes les valeurs.
+discrete_NAs$pHspec_Tptb <- NA
+
+discrete <- rbind(discrete_NAs, discrete_noNAs)
+discrete <- dplyr::arrange(discrete, datetime)
+discrete$datetime <- ymd_hms(discrete$datetime, tz = "UTC")
+#discrete <- discrete[,c(1,3,4,17,19,7,8,10,11,9,15,16,18,6,14,2,5,12,13)]
+
+write.table(discrete,"../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
+
+# add discrete data to the all data serie
+TAB <- left_join(TAB,discrete%>%select(date,pHcalc_ptB,pHspec_Tptb), by="date")
+#TAB <- left_join(TAB,discrete[,c(1,17:18)], by="date")
+write.table(TAB,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/ALLdata_discrete_continuous.csv",row.names=FALSE,sep=",",dec=".")
+
+```
+
+## Results
+### **Raw Continuous measurements**
+Graphic below shows raw pH and voltages (V) data for internal and external reference electrodes and temperature from the sensor. It also shows temperature from the sensor. 
+```{r Plot continuous measurements, echo=FALSE, warning=FALSE, message=FALSE, out.width='100%'}
+ 
+TAB <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/ALLdata_discrete_continuous.csv", header=T, sep=",", dec=".", as.is=T)
+TAB$date <- ymd_hms(TAB$date, tz = "UTC")
+
+# 0
+# On supprime les données seaFET abérantes liées du biofouling du 2015-03-12 au 2015-04-02
+#TAB_hole<- TAB %>% 
+#dplyr::filter(date < as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date > as.POSIXct("2015-04-02 08:00:08",tz="UTC"))
+
+TAB_hole<- TAB %>% 
+    dplyr::mutate(pHINT = ifelse( date > as.POSIXct("2015-03-12 07:00:00",tz="UTC") & date <= as.POSIXct("2015-04-02 08:00:08",tz="UTC") , NA, pHINT)) 
+TAB_hole<- TAB_hole %>% 
+    dplyr::mutate(pHEXT = ifelse( date > as.POSIXct("2015-03-12 07:00:00",tz="UTC") & date <= as.POSIXct("2015-04-02 08:00:08",tz="UTC") , NA, pHEXT)) 
+TAB_hole<- TAB_hole %>% 
+   dplyr::mutate(Eext = ifelse( date > as.POSIXct("2015-03-12 07:00:00",tz="UTC") & date <= as.POSIXct("2015-04-02 08:00:08",tz="UTC") , NA, Eext))
+TAB_hole<- TAB_hole %>% 
+   dplyr::mutate(Eint = ifelse( date > as.POSIXct("2015-03-12 07:00:00",tz="UTC") & date <= as.POSIXct("2015-04-02 08:00:08",tz="UTC") , NA, Eint))
+
+#For continuous
+TAB_hole_cont <- TAB_hole[,c(1:3,5:6,4)]
+TABm_hole_cont <- melt(TAB_hole_cont, id.vars="date")
+
+#graph facet en fonction des variables : variable~
+#pdf(file = "time_series.pdf", onefile=T, width = 10, height = 7.5, paper = "a4r")
+# On utilise theme_bw() pour le fond blanc et scale_colour...() pour supprimer la legende
+time_series_cont <- ggplot(TABm_hole_cont) + geom_point(aes(x=date, y=value, color=variable),size=0.5) +
+  facet_grid(variable~., scales="free_y") + 
+  theme_bw()+ xlab("Time")+ylab("")+
+  scale_colour_discrete(guide="none")
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/time_series_cont.png",time_series_cont,height =18, units="cm")
+
+print(time_series_cont)
+
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/time_series_dis.png",time_series_dis,height =18, units="cm")
+```
+
+### **Discrete sampling**
+Graphic and table below show all the weekly interpolated Point B parameters (salinity, temperature, $A_\mathrm{T}$ and $C_\mathrm{T}$, phosphate and silicate).Note that:
+
+* NAs are related to Non Available data because of the in progress deployement, samples not yet measured or problem with measurements.
+
+```{r discrete table, echo=FALSE, warning= FALSE, message=FALSE, out.width="100%"}
+
+print(time_series_dis)
+
+# On supprime les données seaFET abérantes liées du biofouling du 2015-03-12 au 2015-04-02
+discrete<- discrete %>% 
+dplyr::filter(date <= as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date >= as.POSIXct("2015-04-02 08:00:08",tz="UTC"))
+
+#kable(discrete[,c(1,17, 10:15 )], digits=5)
+write.table(discrete,"../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",row.names=FALSE,sep=",",dec=".")
+```
+
+### **seaFET T° vs Point B T°**
+Regressions are Model II (geometric).
+
+```{r discrete temperature T_seaF VS T_ptb, echo=FALSE, message=FALSE, out.width="70%", fig.align='left'}
+# Regression model II
+## 1
+## T_seaF VS T_ptb
+# rappel focntion lineaire : lm(y ~ x)
+temperature <- left_join(discrete_noNAs%>%select(date, T_seaF), TAB%>%select(date, T_ptb), by="date")
+#temperature <- left_join(discrete_noNAs[,c(1,6)], TAB[,c(1,11)], by="date")
+
+#temperature_NoOut <- temperature %>% #  To remove an outlier in red 
+#  filter(date !="2015-06-09 12:00:08")
+#temperature_Out <- temperature %>% #  To keep an outlier in red 
+#  filter(date == "2015-06-09 12:00:08")
+
+titre <- "seaFET T vs Point B T"
+fit <- lmodel2(data = temperature, T_ptb ~ T_seaF, nperm = 99)
+p_Tptb_Tsf <-  ggreg2(fit, "T_seaF", "T_ptb") +
+  geom_line(aes(x = T_seaF, y = T_seaF), linetype = 2) +
+  mytheme+labs(x="T seaFET", y="T Point B")
+#  geom_point(data=temperature_Out, aes(x=T_seaF,y=T_ptb), colour = "red", size=5)
+  
+print(p_Tptb_Tsf)
+```
+
+### **Calibration of seaFET pH**
+
+Plots of E0ext25 and E0int25 returned by the function "pHCalib" are shown below. The mean values of E0ext25 and E0int25 (red and blue circles) are calculated by the "pHCalib" function for each period of deployement. Continuous measurements from April, the 12th to 31st are not shown because of the drift of the sensor due to biofouling. 
+
+> Mail from Yui on the 2015-05-25:
+>
+> **Question to Yui**: Data processing was performed as for the Arctic data. Both E0int and E0ext exhibit a trend with time. What do you suggest? Do I need to make a drift correction? If I do, how is this done?
+>
+> **Response**: yes, there is a trend ,but look at the magnitude of the trend. it is small. The range of Eo_25C is ~2mV, which is actually quite good. The std. dev of Eo_25 is ~1mV, and since you've collected 17 samples, your uncertainty in your Eo_25 = stdev/sqrt(n), which is smaller than the uncertainty related to pH measurements (unpurified dye, K1/K2 uncertainty, etc). So I wouldn't worry about applying a linear trend; it probably won't matter anyways. but if you do decide to, just do a linear regression through the Eo_25C, and then use that function to calculate Eo_25 that you use to calculate pH.
+
+We do not make any trend correction as advised by Yui (see above). In conclusion, we make the following calulations using the sensor's pH **INTERNAL refrerence**.
+
+
+
+```{r POINT B seafet calibration per deployment, echo=FALSE, warning=FALSE, message=FALSE, out.width= "100%"}
+# on supprime toutes les variables SAUF entre ''
+#ls()[!(ls() %in% c('mytheme','pHCalib','pHCalc','ggreg2'))] 
+
+discrete_ptb <- read.table("../../pCloud Sync/exp166_seafet/8_Intercomparaison/discrete_data_insitu_PROCESSED.csv",header=T,sep=",",dec=".")
+discrete_ptb$date <- ymd_hms(discrete_ptb$date)
+# Mettre le numero de déploiement 
+#discrete_ptb <- left_join(discrete_ptb, TAB[,c(1,9)], by="date" )
+# On supprime les données seaFET abérantes liées du biofouling du 2015-03-12 au 2015-04-02
+discrete_ptb<- discrete_ptb %>% 
+dplyr::filter(date < as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date > as.POSIXct("2015-04-02 08:00:08",tz="UTC"))
+
+################       Run of the function 1 pHCalib to calculate          
+################ new E0int25/E0ext25 needed in the fucntion 2 (pHtot calc) 
+calib_spectro_ptb <- sf_calib(calEint=discrete_ptb$Eint, calEext=discrete_ptb$Eext, calpH=discrete_ptb$pHspec_Tptb, calT=discrete_ptb$T_ptb, calSal=discrete_ptb$S_ptb)
+names(calib_spectro_ptb) <- c("E0int25", "E0ext25")
+calib_spectro_ptb <- as.data.frame(calib_spectro_ptb)
+calib_spectro_ptb$dt <- discrete_ptb$date
+calib_spectro_ptb$date <- ymd_hms(calib_spectro_ptb$dt)
+calib_spectro_ptb <- calib_spectro_ptb  %>% 
+            dplyr::filter(!is.na(E0ext25))
+
+# Mettre le numero de déploiement 
+calib_spectro_ptb <- left_join(calib_spectro_ptb, TAB%>%select(date, deployment), by="date" )
+########## E0 by period of deployement
+calib_spectro_ptb <- group_by(calib_spectro_ptb, deployment) %>%
+summarise(E0ext25 = mean(E0ext25, na.rm = T), E0int25 = mean(E0int25, na.rm = T))
+kk <- melt(calib_spectro_ptb, id.vars="deployment")
+
+#### plot
+p_calib_ptb <- ggplot(kk) + geom_point(aes(x=deployment, y=value, color=variable),size=2) +
+  facet_grid(variable~., scales="free_y") + theme_bw() +
+  scale_colour_discrete(guide="none")
+
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/calib_E0ext25_E0int25_ptb.png",p_calib_ptb,height =20, units="cm")
+
+# Add the mean E0 to discrete sample per deployment
+discrete_ptb1  <- discrete_ptb  %>% 
+            dplyr::filter(!is.na(pHspec_Tptb), !is.na(Eext))
+discrete_ptb1 <-left_join(discrete_ptb1, calib_spectro_ptb,by="deployment" )
+
+################         Run of the function 2 pHCalc         
+################ calculate calibrated pH on the entire dataset 
+# on discrete samples
+pHT_calib_ptb_discrete <- sf_calc(calEint=discrete_ptb1$Eint, calEext= discrete_ptb1$Eext, E0int25= discrete_ptb1$E0int25, E0ext25= discrete_ptb1$E0ext25, calT= discrete_ptb1$T_ptb, calSal= discrete_ptb1$S_ptb)
+names(pHT_calib_ptb_discrete) <- c("pHT_sfint", "pHT_sfext")
+pHT_calib_ptb_discrete <- as.data.frame(pHT_calib_ptb_discrete)
+pHT_calib_ptb_discrete$date <- discrete_ptb1$date
+#pHT_calib_ptb_discrete$deployment <- discrete_ptb1$deployment
+#pHT_calib_ptb_discrete$date <- ymd_hms(pHT_calib_ptb_discrete$date)
+#discrete_ptb1$pHT_sfint <- pHT_calib_ptb_discrete$pHT_sfint
+#discrete_ptb1$pHT_sfext <- pHT_calib_ptb_discrete$pHT_sfext
+discrete_ptb1 <- left_join(discrete_ptb1, pHT_calib_ptb_discrete,by="date")
+
+write.table(discrete_ptb1,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/continuous_discrete.csv",row.names=FALSE,sep=",",dec=".")
+
+# Do it on all seafet data
+seafet_ptb <- read.table("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/time-series.csv",header=T,sep=",",dec=".")
+seafet_ptb$date <- ymd_hms(seafet_ptb$date)
+# On supprime les données seaFET abérantes liées du biofouling du 2015-03-12 au 2015-04-02
+seafet_ptb<- seafet_ptb %>% 
+dplyr::filter(date < as.POSIXct("2015-03-12 07:00:00",tz="UTC") | date > as.POSIXct("2015-04-02 08:00:08",tz="UTC"))
+
+
+seafet_ptb <-left_join(seafet_ptb, calib_spectro_ptb ,by="deployment" )
+
+
+pHT_calib_ptb <- sf_calc(calEint=seafet_ptb$Eint, calEext= seafet_ptb$Eext, E0int25= seafet_ptb$E0int25, E0ext25= seafet_ptb$E0ext25, calT = seafet_ptb$T_ptb, calSal= seafet_ptb$S_ptb)
+names(pHT_calib_ptb) <- c("pHT_sfint", "pHT_sfext")
+pHT_calib_ptb <- as.data.frame(pHT_calib_ptb)
+pHT_calib_ptb$date <- seafet_ptb$date
+pHT_calib_ptb$date<- ymd_hms(pHT_calib_ptb$date)
+
+seafet_all_ptb <- left_join(seafet_ptb, pHT_calib_ptb, by="date" ) # alldataset of seafet not corr + seafet corrected + date
+#str(seafet_all)
+# add spectro from "discrete_ptb" with NA for non discrete rows
+discrete_ptb$date<- ymd_hms(discrete_ptb$date)
+seafet_all_ptb  <- left_join(seafet_all_ptb,discrete_ptb%>%select(date, pHcalc_ptB, pHspec_Tptb), by="date")
+#seafet_all_ptb  <- left_join(seafet_all_ptb,discrete_ptb[,c(1,18, 19)], by="date")
+#z <- left_join(seafet_all_ptb,discrete_ptb[,c(1,16:17)], by="date")
+
+write.table(seafet_all_ptb,"../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_data/all_data/continuous_discrete.csv",row.names=FALSE,sep=",",dec=".")
+
+seafet_all_ptb_int <-melt(dplyr::select(seafet_all_ptb, date, pHINT, pHT_sfint), id.vars = "date")
+seafet_all_ptb_ext <-melt(dplyr::select(seafet_all_ptb, date, pHEXT ,pHT_sfext), id.vars = "date")
+
+# # To see only a short periode : switch the data in the ggplot by those ones.
+# seafet_all_ptb_int_short <-seafet_all_ptb_int %>% 
+# dplyr::filter(date > as.POSIXct("2016-03-14 07:00:00",tz="UTC") )
+# discrete_ptb_short <- discrete_ptb %>% 
+# dplyr::filter(date > as.POSIXct("2016-03-14 07:00:00",tz="UTC") )
+
+
+# # pH ext + pH ext corr / plot pH int + pH int corr
+# p_seafet_ptb_ext  <-  ggplot() +
+#                     geom_point(data=seafet_all_ptb_ext,aes(x=date, y=value, colour=variable),size=1) + 
+#                     geom_point() + geom_point(data=discrete_ptb, aes(x=date,y=pHspec_Tptb, colour="black"), size=2)+
+#                     scale_color_manual("",values=c("red", "blue", "black"), labels=c("pH spectro", "seaFET EXT ", "seaFET EXT corrected")) + labs(y="seaFET EXT pH", x="Time") + mytheme + theme(legend.position="bottom")
+# 
+# 
+# p_seafet_ptb_int  <- ggplot() + 
+#                     geom_point(data=seafet_all_ptb_int,aes(x=date, y=value, colour=variable),size=1) + 
+#                     geom_point() + geom_point(data=discrete_ptb, aes(x=date,y=pHspec_Tptb, colour="black") ,size=2) +
+#                     scale_color_manual("",values=c("red", "blue", "black"), labels=c("pH spectro", "seaFET", "seaFET corrected")) +
+#                     labs(y="seaFET pH", x="Time", title="Calibration parameters averaged per deployment") + mytheme + theme(legend.position="bottom", axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   geom_vline(xintercept = as.numeric(as.POSIXct(c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08","2014-02-11 09:00:08","2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:00:08","2015-09-29 09:00:08","2015-12-08 09:00:08","2016-01-07 09:00:08", "2016-03-08 09:00:08", "2016-04-08 08:00:08", "2016-06-03 08:00:08", "2016-07-06 08:00:08","2016-09-06 08:00:08", "2016-10-26 08:00:08", "2016-11-08 09:00:08", "2016-12-07 09:00:08", "2017-02-01 09:00:08", "2017-03-22 09:00:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08"))))+ scale_x_datetime(breaks=date_breaks("3 months"), labels = date_format("%b%y") ) 
+# 
+# ggsave("../pb_figures/all_figures/pH_seaFETint_calibrated_spectro_perdeployment.png",p_seafet_ptb_int, width=20, dpi=1200)
+
+```
+
+
+```{r POINT B coef calib plots, echo=FALSE, message= F, fig.show='hold', out.width='100%'}
+# Data to apply the calibration functions. E0ext25 and E0int25 plots after calibration with discrete pH spectro (T38 temperature).
+
+print(p_calib_ptb) # Ke0 plot
+```
+<br>
+<br> 
+<br>
+<br>
+
+### **Delta pH**
+
+```{r POINT B deltas plots, echo=FALSE, warning = FALSE, message = FALSE, out.width='100%'}
+# on outliar higlithed after 1st shot : 2015-01-27 remove it
+
+discrete_ptb1 <- discrete_ptb1 %>%
+  dplyr::filter(!date == as.POSIXct("2015-01-27 09:00:08", tz="UTC"))
+
+# data normalization with 15°C
+discrete_ptb1$pHT_spec15 <- pHinsi(pH = discrete_ptb1$pHspec_Tptb, ALK = discrete_ptb1$at_ptb*1e-6, Tinsi = 15,Tlab = discrete_ptb1$T_ptb, S = discrete_ptb1$S_ptb, Pt = 0, Sit = 0, b="u74")
+
+discrete_ptb1$pHT_calc15 <- pHinsi(pH = discrete_ptb1$pHcalc_ptB, ALK = discrete_ptb1$at_ptb*1e-6, Tinsi = 15, Tlab = discrete_ptb1$T_ptb, S = discrete_ptb1$S_ptb, Pt = 0, Sit = 0, k1k2="l", kf="pf", ks="d", pHscale="T", b="u74")
+
+discrete_ptb1$pHT_sf15_corr <- pHinsi(pH = discrete_ptb1$pHT_sfint, ALK = discrete_ptb1$at_ptb*1e-6, Tinsi = 15, Tlab = discrete_ptb1$T_ptb, S = discrete_ptb1$S_ptb, Pt = 0, Sit = 0, k1k2="l", kf="pf", ks="d", pHscale="T", b="u74")
+
+discrete_ptb1$pHT_sf15 <- pHinsi(pH = discrete_ptb1$pHINT, ALK = discrete_ptb1$at_ptb*1e-6, Tinsi = 15, Tlab = discrete_ptb1$T_ptb, S = discrete_ptb1$S_ptb, Pt = 0, Sit = 0, k1k2="l", kf="pf", ks="d", pHscale="T", b="u74")
+
+#pH deltas vs time  ########### seaFET CORRECTED
+
+discrete_ptb1$delta_spec15_corr <- discrete_ptb1$pHT_sf15_corr - discrete_ptb1$pHT_spec15 # diff with spectrophotometric pH
+discrete_ptb1$delta_calc15_corr <- discrete_ptb1$pHT_sf15_corr - discrete_ptb1$pHT_calc15 # diff with calculated pH
+
+ddl <- discrete_ptb1 %>%
+    dplyr::select(date, delta_calc15_corr, delta_spec15_corr) 
+
+delta_corr_xts <- dplyr::select(ddl, date, delta_calc15_corr, delta_spec15_corr)
+delta_corr_xts <- as.xts(delta_corr_xts, order.by=delta_corr_xts$date)
+
+dygraph(delta_corr_xts, ylab = "Delta pH<sub>T</sub> 15°C") %>%
+  dySeries("delta_calc15_corr", drawPoints = TRUE, pointSize=4, label = "seaFET corr - calculated")%>%
+  dySeries("delta_spec15_corr", drawPoints = TRUE, pointSize=4, label = "seaFET corr - spectro") %>%
+  dyLimit(0)%>%
+  dyLimit(0.02,color =  "red")%>%
+  dyLimit(-0.02,color =  "red")%>%
+  dyLegend(show = "always", width = 600)%>%
+  dyAxis("y",valueRange = c(-0.1, 0.11))%>%
+  dyRangeSelector(height = 30)
+
+# # pH deltas vs time ###########  seaFET NOT CORRECTED
+# # normalized seafet pH external with 15°C without correction
+# 
+# discrete_ptb1$delta_spec15 <- discrete_ptb1$pHT_sf15 - discrete_ptb1$pHT_spec15 # diff with spectrophotometric pH
+# discrete_ptb1$delta_calc15 <- discrete_ptb1$pHT_sf15 - discrete_ptb1$pHT_calc15 # diff with calculated pH
+# 
+# ddl <- discrete_ptb1 %>%
+#     dplyr::select(date, delta_calc15, delta_spec15) %>%
+#     melt(id.vars = "date")
+# 
+# p_delta <- ggplot(ddl, aes(x=date, y=value, colour=variable)) +
+#   geom_point(size=4) +
+#   geom_line() +
+#   geom_point(size=4) +  geom_hline(yintercept=0) + labs( x="Time", y=expression(paste("Delta ",pH[T], ", 15 °C"))) +
+#   scale_color_manual("",values=c("#999999", "blue"), labels=c("seaFET - calculated", "seaFET - spectro"))  + 
+#   mytheme  + theme(legend.position="bottom") + labs(title= "seaFET data not corrected") 
+# #+ ylim(c(-0.04, 0.60))
+# 
+# print(p_delta)
+```
+
+Last calculated pH data, from TA/DIC point B (in grey), must not be taken in consideration since the last analysis are not done by SNAPO. Here, last data are calculated on a "mean TA/DIC" basis and do not reflect the reality.
+
+> McLaughlin et al. 2017 [Article](https://reader.elsevier.com/reader/sd/pii/S2352485516302559?token=32EEF36D3E70FC7ADF8BD0915A7FDBC9DC3EBEA64EFF1B987B3FF82AEEEAFC5F8DA33DB2A977351D9D78CAED13C16A52)
+>
+> “operator error appears to be a defining factor in generating usable data with an ISFET sensor.”
+>
+> “**differences between calibrated sensor pH values and values obtained from discrete, check samples can be expected to be as small as 0.02 pH units, and perhaps less.**”
+>
+>“co-deployment of at least one other independent sensor would provide confirmation that the sensors are not drifting and greatly improve confidence in
+data quality.”
+
+ 
+
+### **seaFET pH15° vs calculated pH15°**
+
+Red circles are considered as outliers and are not taken into consideration for the regression parameters.
+We do not calculate pH after the 2015-08-04 because $A_\mathrm{T}$ and $C_\mathrm{T}$ data from Point B are not still available.
+<br>
+
+```{r plots pH seaFET15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
+########### seaFET CORRECTED
+# remove calculated data after this date because AT CT not  available. 
+discrete_ptb2_without <- discrete_ptb1 %>%
+  filter( date < "2015-09-01 08:00:08")
+#discrete_ptb2_with <- discrete_ptb1 %>%
+ # filter( date =="2015-07-21 08:00:08" | date =="2015-07-15 08:00:08" )
+
+titre <- "seaFET data corrected"
+fit <- lmodel2(data = discrete_ptb2_without, pHT_sf15_corr ~ pHT_calc15, nperm = 99)
+p_sf_cal_corr_ptb <- ggreg2(fit, "pHT_calc15", "pHT_sf15_corr") +
+  geom_line(aes(x = pHT_calc15, y = pHT_calc15), linetype = 2) +
+  labs(x=expression(paste("Calculated ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
+  mytheme + theme(legend.position="bottom") 
+ # geom_point(data=discrete_ptb2_with, aes(x=pHT_calc15,y=pHT_sf15_corr), colour = "red", size=5)
+
+# ########### seaFET NOT CORRECTED
+# #with ptB data
+# #discrete_ptb2_without <- discrete_ptb1 %>%
+# #  filter(date != "2014-07-16 08:00:08"  & date !="2014-07-30 08:00:08" & date !="2015-05-12 06:00:08" & date !="2015-06-09 #12:00:08" & date !="2015-07-21 08:00:08" & date !="2015-07-15 08:00:08" & date <"2015-08-04 08:00:08")
+# #discrete_ptb2_with <- discrete_ptb1 %>%
+# # filter(date == "2014-07-16 08:00:08"  | date =="2015-05-12 06:00:08"| date =="2015-06-09 12:00:08" | date =="2014-07-30 #08:00:08" | date =="2015-07-21 08:00:08" | date =="2015-07-15 08:00:08" )
+# 
+# titre <- "seaFET data not corrected"
+# fit <- lmodel2(data = discrete_ptb2_without, pHT_sf15 ~ pHT_calc15, nperm = 99)
+# p_sf_cal_ptb <- ggreg2(fit, "pHT_calc15", "pHT_sf15") +
+#   geom_line(aes(x = pHT_calc15, y = pHT_calc15), linetype = 2) +
+#   labs(x=expression(paste("Calculated ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
+#   mytheme + theme(legend.position="bottom") 
+# # geom_point(data=discrete_ptb2_with, aes(x=pHT_calc15,y=pHT_sf15), colour = "red", size=5)
+# 
+# print(p_sf_cal_ptb)
+print(p_sf_cal_corr_ptb)
+```
+<br>
+<br> 
+<br>
+
+### **seaFET pH15° vs spectro15°**
+<br>
+```{r plots pH seaFET 15 vs spectro 15, fig.keep='all', echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
+########### seaFET CORRECTED
+titre <- "seaFET data corrected"
+fit <- lmodel2(data = discrete_ptb1, pHT_sf15_corr ~ pHT_spec15, nperm = 99)
+p_spec_sf_corr <- ggreg2(fit, "pHT_spec15", "pHT_sf15_corr") +
+  geom_line(aes(x = pHT_spec15, y = pHT_spec15), linetype = 2) +
+  labs(x=expression(paste("Spectro ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
+  mytheme + theme(legend.position="bottom")
+
+# ########### seaFET NOT CORRECTED
+# titre <- "seaFET data not corrected"
+# fit <- lmodel2(data = discrete_ptb1, pHT_sf15 ~ pHT_spec15, nperm = 99)
+# p_spec_sf <- ggreg2(fit, "pHT_spec15", "pHT_sf15") +
+#   geom_line(aes(x = pHT_spec15, y = pHT_spec15), linetype = 2) +
+#   labs(x=expression(paste("Spectro ",pH[T], ", 15 °C")), y=expression(paste("seaFET ",pH[T], ", 15 °C"))) +
+#   mytheme + theme(legend.position="bottom")
+# 
+# print(p_spec_sf)
+print(p_spec_sf_corr)
+```
+<br>
+<br> 
+<br>
+
+### **spectro15° vs calculated pH15°**
+<br>
+```{r plots pH spectro15 vs calc15, echo=FALSE, warning = FALSE, message = FALSE, out.width='70%'}
+
+fit <- lmodel2(data = discrete_ptb2_without, pHT_calc15 ~ pHT_spec15, nperm = 99)
+p_spec_cal <- ggreg2(fit, "pHT_spec15", "pHT_calc15") +
+  geom_line(aes(x = pHT_spec15, y = pHT_spec15), linetype = 2) +
+  labs(x=expression(paste("Spectro ",pH[T], ", 15 °C")), y=expression(paste("Calculated ",pH[T], ", 15 °C"))) +
+  mytheme + theme(legend.position="bottom")
+
+print(p_spec_cal)
+```
+<br>
+<br> 
+<br>
+
+## Comparaison between Point B pH calculated (SNAPO) / pH spectro
+
+```{r Comparaison EOL/PtB, echo=FALSE, include = FALSE,warning = FALSE, message = FALSE, out.width="100%"}
+comparaison <- read.table("../../pCloud Sync/exp153_carbonates_point_B/data/Data_DIC.csv", header=T, sep=",", dec=".", as.is=T)
+comparaison$date<- dmy(comparaison$sampling_date, tz="UTC")
+# make the mean for ta
+comparaison <- comparaison %>% 
+  dplyr::group_by(date, depth) %>% 
+  dplyr::mutate(ta = mean(ta_dup, na.rm = T),
+                dic = mean(dic_dup, na.rm = T)
+            )
+
+# select variables for EOL/PtB comparaison
+comparaison <- comparaison %>%
+  dplyr::select(date, depth,temp_field, salinity_field, temp_lab_ptb, pH_s_ptb_temp_lab, qflag_pH_s_ptb,temp_lab_eol, pH_s_eol_temp_lab, qflag_pH_s_eol, ta, dic,PO4, SIOH4)#%>%
+  #dplyr::rename(at_ptb = ta)
+# filtre 0 m + filter flag pH 2 
+# # select only days were both pH eol and pH ptB are present to campare
+# comparaison <- comparaison %>%
+#   dplyr::filter( depth == 0 ) %>%
+#   dplyr::filter(qflag_pH_s_ptb == 2)%>%
+#   dplyr::filter( qflag_pH_s_eol == 2 ) 
+
+# select only days were both pH spec and ta/dicB are present with no NA to campare  
+comparaison <- comparaison %>%
+  dplyr::select(date, depth,temp_field, salinity_field,temp_lab_ptb, pH_s_ptb_temp_lab,qflag_pH_s_ptb,ta, dic,PO4, SIOH4)%>%
+  dplyr::filter( depth == 0 )%>%
+dplyr::filter(!is.na(temp_field))
+
+# interpolation of missing TA and nutrients
+#comparaison <- left_join(comparaison, y%>%select(date, at_ptb), by="date")
+#comparaison$at_ptb[is.na(comparaison$at_ptb)] <- mean(comparaison$at_ptb, na.rm= TRUE)
+comparaison$PO4[is.na(comparaison$PO4)] <- 0
+comparaison$SIOH4[is.na(comparaison$SIOH4)] <- 0
+
+# eol <- comparaison%>%
+#   dplyr::filter(!is.na(pH_s_eol_temp_lab) & !is.na(temp_field) & !is.na(salinity_field))
+ptb <- comparaison%>%
+  dplyr::filter(!is.na(pH_s_ptb_temp_lab)& !is.na(temp_field) & !is.na(salinity_field))
+
+# conversion of pH
+#eol$pH_s_eol_Tptb <- pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4)
+ptb$pH_s_ptb_Tptb <- pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$ta*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4)
+#eol <- eol %>% 
+#  dplyr::mutate(pH_s_eol_Tptb = pHinsi(pH=eol$pH_s_eol_temp_lab,ALK=eol$at_ptb*1e-6, Tinsi=eol$temp_field, Tlab=eol$temp_lab_eol, S=eol$salinity_field,Pt=eol$PO4,Sit=eol$SIOH4))
+#ptb <- ptb %>% 
+#  dplyr::mutate(pH_s_ptb_Tptb = pHinsi(pH=ptb$pH_s_ptb_temp_lab,ALK=ptb$at_ptb*1e-6, Tinsi=ptb$temp_field, Tlab=ptb$temp_lab_ptb, S=ptb$salinity_field,Pt=ptb$PO4,Sit=ptb$SIOH4))
+
+# mean of variables
+ptb <- ptb %>%
+  dplyr::group_by(date)%>%
+  dplyr::summarize(pH_s_ptb_Tptb = mean(pH_s_ptb_Tptb, na.rm = T),
+                   temp_field = mean(temp_field, na.rm = T),
+                  salinity_field = mean(salinity_field, na.rm = T),
+                   at_ptb = mean(ta, na.rm = T),
+                   dic_ptb = mean(dic, na.rm = T),
+                  PO4 = mean(PO4, na.rm = T),
+                  SIOH4 = mean(SIOH4, na.rm = T))
+ # eol <- eol %>%
+ #  dplyr::group_by(date)%>%
+ #  dplyr::summarize(pH_s_eol_Tptb = mean(pH_s_eol_Tptb, na.rm = T),
+ #                   temp_field = mean(temp_field, na.rm = T),
+ #                  salinity_field = mean(salinity_field, na.rm = T),
+ #                   at_ptb = mean(at_ptb, na.rm = T))
+ #                                     
+#comparaison_mean <- left_join(eol, ptb%>%dplyr::select(date,pH_s_ptb_Tptb), by="date")                  
+
+ # Creer une df avec les lignes sans NAs
+ptb_noNAs <- ptb %>% 
+  dplyr::filter(!is.na(at_ptb))
+
+# Creer une df avec les lignes avec NAs
+ptb_NAs <- ptb %>% 
+  dplyr::filter(is.na(at_ptb) )
+
+# avec T, S ptB et AT DIC ptB
+carb <- carb(15, ptb_noNAs$at_ptb*0.000001, ptb_noNAs$dic_ptb*0.000001, S=ptb_noNAs$salinity_field, T=ptb_noNAs$temp_field, P=0, Pt=ptb_noNAs$PO4*1e-6, Sit=ptb_noNAs$SIOH4*1e-6 ,k1k2="x", kf="x", ks="d", pHscale="T", b="l10")
+ptb_noNAs$pHcalc_ptB<- carb$pH
+
+
+# Regression Model II
+# Plot
+titre <- "Calc pH (SNAPO AT/CT) vs Spec pH (POINT B)"
+fit <- lmodel2(data = ptb_noNAs%>%filter(date != "2018-01-18"), pHcalc_ptB ~ pH_s_ptb_Tptb, nperm = 99)
+# fit <- lmodel2(data = comparaison_mean%>%filter(date != "2017-08-01" & date !="2016-09-06" & date !="2017-06-27"& date !="2017-10-24" & date!="2017-08-07"& date!="2017-05-23"), pH_s_eol_Tptb ~ pH_s_ptb_Tptb, nperm = 99)
+
+comparaison_p <-  
+  ggreg2(fit, "pH_s_ptb_Tptb", "pHcalc_ptB") +
+  geom_line(aes(x = pH_s_ptb_Tptb, y = pH_s_ptb_Tptb), linetype = 2)  +
+  geom_point(data=ptb_noNAs%>%filter(date == "2018-01-18"), aes(x = pH_s_ptb_Tptb, y = pHcalc_ptB),colour="red", size=3) +
+  mytheme+labs(x="pH Spec", y="pH Calc") +
+   scale_x_continuous(breaks = seq(7.9,8.3,0.05))  +
+   scale_y_continuous(breaks = seq(7.9,8.3,0.05)) + theme(legend.position="bottom", axis.text.x = element_text(angle = 45, hjust = 1)) 
+#  geom_point(data=temperature_Out, aes(x=pH_s_ptb_Tptb,y=pH_s_eol_Tptb), colour = "red", size=5)
+
+print(comparaison_p)
+
+ggsave("../../pCloud Sync/exp166_seafet/1b_seafet_pointB/pb_figures/all_figures/comparaison_pHcalc_pHsepc.png",comparaison_p,height =18, units="cm")
+
+```
+
+Linear regression was done on EOL and Point B pH data. EOL samples were mostly collected by the Point B team and mostly analysed right after by Samir Alliouane. Point B samples were all collected by the Point B team and analysed right after by Hortense De Lary.
+
+### **pH INT - pH EXT**
+```{r pH INT - pH EXT, echo=FALSE, warning = FALSE, message = FALSE, out.width='100%'}
+
+seafet_diff <-  seafet_all_ptb %>% 
+  dplyr::mutate(diffpHintext = pHT_sfint - pHT_sfext) %>% 
+  dplyr::select( date, diffpHintext)
+
+seafet_diff_filter_sup <-  seafet_diff %>% 
+   dplyr::filter(date > as.POSIXct("2016-04-08 08:00:08", tz="UTC"))
+seafet_diff_filter_inf <-  seafet_diff %>% 
+   dplyr::filter(date < as.POSIXct("2016-04-08 08:00:08", tz="UTC"))
+
+seafet_diff_xts <- dplyr::select(seafet_diff, date, diffpHintext)
+seafet_diff_xts <- as.xts(seafet_diff_xts, order.by=seafet_diff_xts$date)
+
+events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:00:08","2015-09-29 09:00:08","2015-12-08 09:00:08","2016-01-07 09:00:08", "2016-03-08 09:00:08", "2016-04-08 08:00:08", "2016-06-03 08:00:08", "2016-07-06 08:00:08", "2016-09-06 08:00:08", "2016-10-26 08:00:08", "2016-11-08 09:00:08", "2016-12-07 09:00:08", "2017-02-01 09:00:08","2017-03-22 09:00:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00","2019-01-07 09:00:00","2019-03-27 09:00:00")
+
+dygraph(seafet_diff_xts, main ="RAW pHs: INT - EXT") %>%
+dyAxis("y",valueRange = c(-11, 10), label = "Delta pH")%>%
+  dySeries("diffpHintext",label = "Delta pH")%>%
+dyOptions(drawPoints = TRUE, pointSize = 3, strokeWidth= 0) %>%
+dyLimit(0,color = "black", strokePattern ="dashed")   %>% 
+dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET Changed by #057", labelLoc = "bottom", color="red") %>%
+  dyLegend(show = "always", width = 400)%>%
+  dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
+  dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
+  dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
+  dyShading(from = events[4], to = events[5], color = "#E0E0E0") %>%
+  dyShading(from = events[5], to = events[6], color = "#CCCCCC") %>%
+  dyShading(from = events[6], to = events[7], color = "#E0E0E0") %>%
+  dyShading(from = events[7], to = events[8], color = "#CCCCCC") %>%
+  dyShading(from = events[8], to = events[9], color = "#E0E0E0") %>%
+  dyShading(from = events[9], to = events[10], color = "#CCCCCC") %>%
+  dyShading(from = events[10], to = events[11], color = "#E0E0E0") %>%
+  dyShading(from = events[11], to = events[12], color = "#CCCCCC") %>%
+  dyShading(from = events[12], to = events[13], color = "#E0E0E0") %>%
+  dyShading(from = events[13], to = events[14], color = "#CCCCCC") %>%
+  dyShading(from = events[14], to = events[15], color = "#E0E0E0") %>%
+  dyShading(from = events[15], to = events[16], color = "#CCCCCC") %>%
+  dyShading(from = events[16], to = events[17], color = "#E0E0E0") %>%
+  dyShading(from = events[17], to = events[18], color = "#CCCCCC") %>%
+  dyShading(from = events[18], to = events[19], color = "#E0E0E0") %>%
+  dyShading(from = events[19], to = events[20], color = "#CCCCCC") %>%
+  dyShading(from = events[20], to = events[21], color = "#E0E0E0") %>%
+  dyShading(from = events[21], to = events[22], color = "#CCCCCC") %>%
+  dyShading(from = events[22], to = events[23], color = "#E0E0E0") %>%
+  dyShading(from = events[23], to = events[24], color = "#CCCCCC") %>%
+  dyShading(from = events[24], to = events[25], color = "#E0E0E0") %>%
+  dyShading(from = events[25], to = events[26], color = "#CCCCCC") %>%
+  dyShading(from = events[26], to = events[27], color = "#E0E0E0") %>%
+  dyShading(from = events[27], to = events[28], color = "#CCCCCC") %>%
+  dyShading(from = events[28], to = events[29], color = "#E0E0E0") %>%
+  dyShading(from = events[29], to = events[30], color = "#CCCCCC") %>%
+  dyShading(from = events[30], to = events[31], color = "#E0E0E0") %>%
+  dyShading(from = events[31], to = events[32], color = "#CCCCCC") %>%
+  dyShading(from = events[32], to = events[33], color = "#E0E0E0") %>%
+  dyShading(from = events[33], to = events[34], color = "#CCCCCC") %>%
+  dyShading(from = events[34], to = events[35], color = "#E0E0E0") %>%
+  dyShading(from = events[35], to = events[36], color = "#FFFFFF") %>%
+  dyShading(from = events[36], to = events[37], color = "#CCCCCC") %>%
+  dyShading(from = events[37], to = events[38], color = "#E0E0E0") %>%
+  dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
+ 
+  dyRangeSelector(height = 30)
+
+# p_diffpHintext <-  ggplot() +
+#                           geom_point(data=seafet_diff,aes(x=date, y=diffpHintext),size=1, color="blue") +
+#                           geom_hline(yintercept=0, linetype =2)+ labs(y="corrected pH INT - pH EXT", x="Time") +
+#                           geom_vline(xintercept = as.numeric(as.POSIXct(c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08","2014-02-11 09:00:08","2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:00:08","2015-09-29 09:00:08","2015-12-08 09:00:08","2016-01-07 09:00:08", "2016-03-08 09:00:08", "2016-04-08 08:00:08", "2016-06-03 08:00:08", "2016-07-06 08:00:08","2016-09-06 08:00:08")))) +
+#                          scale_x_datetime(breaks=date_breaks("3 months"), labels = date_format("%b%y") ) +
+#                          mytheme
+# 
+# ggsave("pb_figures/all_figures/Diff_pH_all.png",p_diffpHintext, width=20, dpi=1200)
+# 
+# print(p_diffpHintext)
+```
+
+
+## Final pH results
+
+```{r, fig.width=12, fig.height=5, echo=FALSE}
+events <- c("2014-01-07 09:00:08","2014-02-11 09:00:08","2014-04-28 13:00:08","2014-06-27 10:00:08","2014-09-16 08:00:08","2014-11-20 09:30:08", "2014-12-19 09:30:08","2015-03-31 07:10:08","2015-06-01 08:00:08","2015-07-06 08:05:08","2015-09-29 09:00:08","2015-12-08 09:05:08","2016-01-07 09:05:08", "2016-03-08 09:05:08", "2016-04-08 08:05:08", "2016-06-03 08:05:08", "2016-07-06 08:05:08","2016-09-06 08:05:08","2016-10-26 08:05:08", "2016-11-08 09:05:08", "2016-12-07 09:05:08", "2017-02-01 09:05:08", "2017-03-22 09:05:08", "2017-05-02 08:05:08", "2017-06-14 08:05:08", "2017-08-29 08:05:08", "2017-09-15 08:05:08", "2017-10-24 08:05:08", "2017-11-07 09:05:08", "2017-11-30 09:05:08", "2018-01-02 09:05:05", "2018-02-06 09:05:05", "2018-02-27 08:05:05","2018-03-27 08:05:05","2018-05-02 08:05:05","2018-09-11 12:00:00","2018-11-09 09:00:00", "2019-01-07 09:00:00","2019-03-27 09:00:00")
+seafet_all_ptb_xts <- dplyr::select(seafet_all_ptb, date,pHT_sfint,pHINT, pHspec_Tptb)
+seafet_all_ptb_xts <- as.xts(seafet_all_ptb_xts, order.by=seafet_all_ptb_xts$date)
+
+dygraph(seafet_all_ptb_xts) %>%
+  dySeries("pHspec_Tptb", drawPoints = TRUE, pointSize=4) %>%
+  dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET #057 installed", labelLoc = "bottom", color="red") %>%
+  dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%
+    dyLegend(show = "always", width = 400)%>%
+  dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
+  dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
+  dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
+  dyShading(from = events[4], to = events[5], color = "#E0E0E0") %>%
+  dyShading(from = events[5], to = events[6], color = "#CCCCCC") %>%
+  dyShading(from = events[6], to = events[7], color = "#E0E0E0") %>%
+  dyShading(from = events[7], to = events[8], color = "#CCCCCC") %>%
+  dyShading(from = events[8], to = events[9], color = "#E0E0E0") %>%
+  dyShading(from = events[9], to = events[10], color = "#CCCCCC") %>%
+  dyShading(from = events[10], to = events[11], color = "#E0E0E0") %>%
+  dyShading(from = events[11], to = events[12], color = "#CCCCCC") %>%
+  dyShading(from = events[12], to = events[13], color = "#E0E0E0") %>%
+  dyShading(from = events[13], to = events[14], color = "#CCCCCC") %>%
+  dyShading(from = events[14], to = events[15], color = "#E0E0E0") %>%
+  dyShading(from = events[15], to = events[16], color = "#CCCCCC") %>%
+  dyShading(from = events[16], to = events[17], color = "#E0E0E0") %>%
+  dyShading(from = events[17], to = events[18], color = "#CCCCCC") %>%
+  dyShading(from = events[18], to = events[19], color = "#E0E0E0") %>%
+  dyShading(from = events[19], to = events[20], color = "#CCCCCC") %>%
+  dyShading(from = events[20], to = events[21], color = "#E0E0E0") %>%
+  dyShading(from = events[21], to = events[22], color = "#CCCCCC") %>%
+  dyShading(from = events[22], to = events[23], color = "#E0E0E0") %>%
+  dyShading(from = events[23], to = events[24], color = "#CCCCCC") %>%
+  dyShading(from = events[24], to = events[25], color = "#E0E0E0") %>%
+  dyShading(from = events[25], to = events[26], color = "#CCCCCC") %>%
+  dyShading(from = events[26], to = events[27], color = "#E0E0E0") %>%
+  dyShading(from = events[27], to = events[28], color = "#CCCCCC") %>%
+  dyShading(from = events[28], to = events[29], color = "#E0E0E0") %>%
+  dyShading(from = events[29], to = events[30], color = "#CCCCCC") %>%
+  dyShading(from = events[30], to = events[31], color = "#E0E0E0") %>%
+  dyShading(from = events[31], to = events[32], color = "#CCCCCC") %>%
+  dyShading(from = events[32], to = events[33], color = "#E0E0E0") %>%
+  dyShading(from = events[33], to = events[34], color = "#CCCCCC") %>%
+  dyShading(from = events[34], to = events[35], color = "#E0E0E0") %>%
+  dyShading(from = events[35], to = events[36], color = "#FFFFFF") %>%
+  dyShading(from = events[36], to = events[37], color = "#CCCCCC") %>%
+  dyShading(from = events[37], to = events[38], color = "#E0E0E0") %>%
+  dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
+  dyOptions(digitsAfterDecimal=4)%>%
+  dyRangeSelector(height = 30)
+
+# With TEMPERATURE
+seafet_all_ptb_T_xts <- dplyr::select(seafet_all_ptb, date, pHT_sfint, pHspec_Tptb, T_seaF)
+seafet_all_ptb_T_xts <- as.xts(seafet_all_ptb_T_xts, order.by=seafet_all_ptb_T_xts$date)
+
+dygraph(seafet_all_ptb_T_xts) %>%
+  dySeries("T_seaF", axis = 'y2')%>%
+  dySeries("pHspec_Tptb", drawPoints = TRUE, pointSize=4) %>%
+  dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET #057 installed", labelLoc = "bottom", color="red") %>%
+  dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%  
+  dyLegend(show = "always", width = 400)%>%
+  dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
+  dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
+  dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
+  dyShading(from = events[4], to = events[5], color = "#E0E0E0") %>%
+  dyShading(from = events[5], to = events[6], color = "#CCCCCC") %>%
+  dyShading(from = events[6], to = events[7], color = "#E0E0E0") %>%
+  dyShading(from = events[7], to = events[8], color = "#CCCCCC") %>%
+  dyShading(from = events[8], to = events[9], color = "#E0E0E0") %>%
+  dyShading(from = events[9], to = events[10], color = "#CCCCCC") %>%
+  dyShading(from = events[10], to = events[11], color = "#E0E0E0") %>%
+  dyShading(from = events[11], to = events[12], color = "#CCCCCC") %>%
+  dyShading(from = events[12], to = events[13], color = "#E0E0E0") %>%
+  dyShading(from = events[13], to = events[14], color = "#CCCCCC") %>%
+  dyShading(from = events[14], to = events[15], color = "#E0E0E0") %>%
+  dyShading(from = events[15], to = events[16], color = "#CCCCCC") %>%
+  dyShading(from = events[16], to = events[17], color = "#E0E0E0") %>%
+   dyShading(from = events[17], to = events[18], color = "#CCCCCC") %>%
+  dyShading(from = events[18], to = events[19], color = "#E0E0E0") %>%
+  dyShading(from = events[19], to = events[20], color = "#CCCCCC") %>%
+  dyShading(from = events[20], to = events[21], color = "#E0E0E0") %>%
+  dyShading(from = events[21], to = events[22], color = "#CCCCCC") %>%
+  dyShading(from = events[22], to = events[23], color = "#E0E0E0") %>%
+  dyShading(from = events[23], to = events[24], color = "#CCCCCC") %>%
+  dyShading(from = events[24], to = events[25], color = "#E0E0E0") %>%
+  dyShading(from = events[25], to = events[26], color = "#CCCCCC") %>%
+  dyShading(from = events[26], to = events[27], color = "#E0E0E0") %>%
+  dyShading(from = events[27], to = events[28], color = "#CCCCCC") %>%
+  dyShading(from = events[28], to = events[29], color = "#E0E0E0") %>%
+  dyShading(from = events[29], to = events[30], color = "#CCCCCC") %>%
+  dyShading(from = events[30], to = events[31], color = "#E0E0E0") %>%
+  dyShading(from = events[31], to = events[32], color = "#CCCCCC") %>%
+  dyShading(from = events[32], to = events[33], color = "#E0E0E0") %>%
+  dyShading(from = events[33], to = events[34], color = "#CCCCCC") %>%
+  dyShading(from = events[34], to = events[35], color = "#E0E0E0") %>%
+  dyShading(from = events[35], to = events[36], color = "#FFFFFF") %>%
+  dyShading(from = events[36], to = events[37], color = "#CCCCCC") %>%
+  dyShading(from = events[37], to = events[38], color = "#E0E0E0") %>%
+  dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
+
+  dyRangeSelector(height = 30)
+
+# With TEMPERATURE removed
+# remove Temperature from pH data
+seafet_all_ptb <-  seafet_all_ptb %>% 
+  dplyr::mutate(pHT18_sfint = pHinsi(pH = seafet_all_ptb$pHT_sfint, ALK = seafet_all_ptb$at_ptb*1e-6, Tinsi = 18, Tlab = seafet_all_ptb$T_seaF, S = seafet_all_ptb$S_ptb, Pt = 0, Sit = 0, k1k2="l", kf="pf", ks="d", pHscale="T", b="u74")
+)
+seafet_all_ptb_noT_xts <- dplyr::select(seafet_all_ptb, date, pHT18_sfint, pHspec_Tptb, pHT_sfint,T_seaF)
+seafet_all_ptb_noT_xts <- as.xts(seafet_all_ptb_noT_xts, order.by=seafet_all_ptb_noT_xts$date)
+
+dygraph(seafet_all_ptb_noT_xts) %>%
+  dySeries("pHT_sfint", drawPoints = FALSE, pointSize=4) %>%
+  dySeries("T_seaF", axis = 'y2')%>%
+  dySeries("pHspec_Tptb", drawPoints = FALSE, pointSize=4) %>%
+  dySeries("pHT18_sfint", drawPoints = FALSE, pointSize=4) %>%
+  dyEvent(as.POSIXct("2017-11-30 10:00:00", tz="GMT"), "seaFET #057 installed", labelLoc = "bottom", color="red") %>%
+  dyEvent(as.POSIXct("2018-09-11 12:00:00", tz="GMT"), "seaFET #1005 installed", labelLoc = "bottom", color="red") %>%
+    dyLegend(show = "always", width = 400)%>%
+  dyShading(from = events[1], to = events[2], color = "#CCCCCC") %>%
+  dyShading(from = events[2], to = events[3], color = "#E0E0E0") %>%
+  dyShading(from = events[3], to = events[4], color = "#CCCCCC") %>%
+  dyShading(from = events[4], to = events[5], color = "#E0E0E0") %>%
+  dyShading(from = events[5], to = events[6], color = "#CCCCCC") %>%
+  dyShading(from = events[6], to = events[7], color = "#E0E0E0") %>%
+  dyShading(from = events[7], to = events[8], color = "#CCCCCC") %>%
+  dyShading(from = events[8], to = events[9], color = "#E0E0E0") %>%
+  dyShading(from = events[9], to = events[10], color = "#CCCCCC") %>%
+  dyShading(from = events[10], to = events[11], color = "#E0E0E0") %>%
+  dyShading(from = events[11], to = events[12], color = "#CCCCCC") %>%
+  dyShading(from = events[12], to = events[13], color = "#E0E0E0") %>%
+  dyShading(from = events[13], to = events[14], color = "#CCCCCC") %>%
+  dyShading(from = events[14], to = events[15], color = "#E0E0E0") %>%
+  dyShading(from = events[15], to = events[16], color = "#CCCCCC") %>%
+  dyShading(from = events[16], to = events[17], color = "#E0E0E0") %>%
+  dyShading(from = events[17], to = events[18], color = "#CCCCCC") %>%
+  dyShading(from = events[18], to = events[19], color = "#E0E0E0") %>%
+  dyShading(from = events[19], to = events[20], color = "#CCCCCC") %>%
+  dyShading(from = events[20], to = events[21], color = "#E0E0E0") %>%
+  dyShading(from = events[21], to = events[22], color = "#CCCCCC") %>%
+  dyShading(from = events[22], to = events[23], color = "#E0E0E0") %>%
+  dyShading(from = events[23], to = events[24], color = "#CCCCCC") %>%
+  dyShading(from = events[24], to = events[25], color = "#E0E0E0") %>%
+  dyShading(from = events[25], to = events[26], color = "#CCCCCC") %>%
+  dyShading(from = events[26], to = events[27], color = "#E0E0E0") %>%
+  dyShading(from = events[27], to = events[28], color = "#CCCCCC") %>%
+  dyShading(from = events[28], to = events[29], color = "#E0E0E0") %>%
+  dyShading(from = events[29], to = events[30], color = "#CCCCCC") %>%
+  dyShading(from = events[30], to = events[31], color = "#E0E0E0") %>%
+  dyShading(from = events[31], to = events[32], color = "#CCCCCC") %>%
+  dyShading(from = events[32], to = events[33], color = "#E0E0E0") %>%
+  dyShading(from = events[33], to = events[34], color = "#CCCCCC") %>%
+  dyShading(from = events[34], to = events[35], color = "#E0E0E0") %>%
+  dyShading(from = events[35], to = events[36], color = "#FFFFFF") %>%
+  dyShading(from = events[36], to = events[37], color = "#CCCCCC") %>%
+  dyShading(from = events[37], to = events[38], color = "#E0E0E0") %>%
+    dyShading(from = events[38], to = events[39], color = "#CCCCCC") %>%
+
+  dyRangeSelector(height = 30)
+
+#write.table(seafet_all_ptb_T_xts,"../pb_data/all_data/ALLdata_calibrated.csv",row.names=FALSE,sep=",",dec=".")
+```
+
+## Maintenance
+Following are dates and times (in UTC) for every lowering and recovery (deployement period) of the sensor. Changement of batteries and any other problems are also added here:
+ 
+  -  **2019-03-29:** back in water at 09:30.
+  -  **2019-03-27:** out of water at 09:10 to give to christophe and Jean-Michel for tests.
+  -  **2019-01-07:** out of water at 09:10 and back in water at 10:30
+  -  **2018-11-09:** back in water at 09:30.
+  -  **2018-10-25:** out of water at 08:00 to give to Christophe for "science card" settings.
+  -  **2018-09-27:** checking the magnet underwater for green light.
+  -  **2018-09-17:** out of water for checking only (08:00) and put back 15 min after.
+  -  **2018-09-11:** back in water at 12:00, New #1005 V2 model.
+  -  **2018-05-02:** out of water for checking only (08:15) in situ and put back 15 min after.
+  -  **2018-03-27:** out of water for checking only (08:10) in situ and put back 15 min after.
+  -  **2018-02-27:** out of water at 09:10 and back in water at 10:30 (The external reference electrode was polished, battery was replaced). No measurements since 2018-02-16 15:00 (11 days).
+  -  **2018-01-02:** out of water for checking only at lab and put back 25 min after.
+  -  **2017-11-30:** out of water at 09:10 and put the other sensor #057 in water at 09:30 (The external reference electrode was polished).
+  -  **2017-11-07:** out of water for checking only on board and put back 5 min after.
+  -  **2017-10-17:** out of water at 09:10 and put back in water at 09:30 (The external reference electrode was polished).
+  -  **2017-09-15:** out of water at 08:05 and back in water at 12:30 (The external reference electrode was polished).
+  -  **2017-08-29:** out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished).
+  -  **2017-06-14:** out of water at 08:05 and back in water at 12:00 (The external reference electrode was polished, battery was replaced).
+  -  **2017-05-02:**out of water at 08:05 and back in water at 12:00 on the 2017-05-03 because of bad weather (The external reference electrode was polished).
+  -  **2017-03-22:**out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2017-02-01:**out of water at 09:05 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2016-12-07:**out of water at 09:20 and back in water at 14:00 (The external reference electrode was polished, battery was replaced).
+  -  **2016-11-08:**out of water at 09:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-10-26:**out of water at 08:00 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-09-06:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-07-06:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished, battery was replaced). No measurements since 2016-07-03 19:00 (3 days).
+  -  **2016-06-03:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-04-08:**out of water at 08:20 and back in water at 13:00 (The external reference electrode was polished).
+  -  **2016-03-08:**out of water at 10:50 and back in water at 14:00 (The external reference electrode was polished).
+  -  **2016-01-15:**Back in water at 09:30 (No measurement during 8 days because of bad weather). 
+  -  **2016-01-07:**out of water at 09:30 and battery replacement (The external reference electrode was polished).
+  -  **2015-12-08:**out of water at 09:30 and back in water at 13:30 (The external reference electrode was polished).
+  -  **2015-09-29:**out of water at 09:10 and back in water at 13:00
+  -  **2015-07-27:**sensor was switched up and down at 08:15 in order to put sensor toward the bottom as noted in the manual.
+  -  **2015-07-06:**out of water at 08:10 and back in water at 12:30
+  -  **2015-06-27:**out of battery at 02:00 (No more measurements during 10 days).
+  -  **2015-06-01:**out of water at 08:20 and back in water at 13:10.
+  -  **2015-03-31:**out of water at 07:10 and back in water at 13:10.
+  -  **2015-03-12 to 2015-04-02 :**biofouling. Data not taken in consideration.
+  -  **2014-12-19:**out of water at 09:30 and back in water at 12:30 and battery replacement.
+  -  **2014-11-20:**out of water at 09:30 and back in water at 15:00. 
+  -  **2014-09-16:**out of water at 08:00 and back in water at 13:00.
+  -  **2014-06-27:**out of water at 10:00, back in water at 11:00 and battery replacement.
+  -  **2014-06-05:**out of battery at 11:00 (No more measurements during 22 days).
+  -  **2014-04-29:**back in water at 17:00 (Not put before because of the bad weather).
+  -  **2014-04-28:**out of water at 13:00.
+  -  **2014-02-11:**out of water at 09:00 and back in water at 10:00.
+  -  **2014-01-07**: out of water at 09:00 and back in water at 11:00.
+  -  **2013-12-18**: sensor \#007 installed.
+  
+  
+EOL Buoy cleaning dates:
+
+- **2016-04-22**:finished at 09:00
+
+## Acknowlegments
+
+The sailors: J.-Y Carval, J.-L Prevost, P. Cohen. 
+
+Point B team: L. Mousseau, F. Petit, O. Passafiume, M. Durozier, A.-M. Corre, H. De Lary. 
+
+EOL buoy engineer: J.-M Grisoni.
+
+Divers: G. De Liège, D. Luquet.
+
+## Bibliographic references
+
+Robbins L. L., Wynn J. G., Lisle J. T., Yates K. K., Knorr P. O., Byrne R. H., Liu X., Patsavas M. C., Azetsu-Scott K. \& Takahashi T., 2013. Baseline monitoring of the Western Arctic Ocean estimates 20\% of Canadian Basin surface waters are undersaturated with respect to aragonite. PLoS ONE 8:e73796.
+
+Dickson A. G. \& Riley J. P., 1979. The estimation of acid dissociation constants in seawater media from potentiometric titrations with strong base. I. The ionic product of water. Marine Chemistry 7:89-99.
+
+Dickson A. G., 1990. Standard potential of the reaction: AgCI(s) + 1/2H2(g) = Ag(s) + HCI(aq), and the standard acidity constant of the ion HSO4 in synthetic sea water from 273.15 to 318.15 K. Journal of Chemical Thermodynamics 22:113-127.
+
+Dickson A. G., Sabine C. L. \& Christian J. R., 2007. Guide to best practices for ocean CO2 measurements. PICES Special Publication 3:1-191.
+
+DOE, 1994. Handbook of methods for the analysis of the various parameters of the carbon dioxide system in sea water. p. Carbon Dioxide Information Analysis Center, Oak Ridge National Laboratory.
+
+Edmond J. M., 1970. High precision determination of titration alkalinity and total carbon dioxide content of sea water by potentiometric titration. Deep-Sea Research 17:737-750.
+
+Gattuso J.-P. \& Lavigne H., 2009. Technical Note: Approaches and software tools to investigate the impact of ocean acidification. Biogeosciences 6:2121-2133.
+
+Lee K., Kim T.-W., Byrne R. H., Millero F. J., Feely R. A. \& Liu Y.-M., 2010. The universal ratio of boron to chlorinity for the North Pacific and North Atlantic oceans. Geochimica et Cosmochimica Acta 74:1801-1811.
+
+Lueker T. J., Dickson A. G. \& Keeling C. D., 2000. Ocean pCO2 calculated from dissolved inorganic carbon, alkalinity, and equations for K1 and K2: validation based on laboratory measurements of CO2 in gas and seawater $A_\mathrm{T}$ equilibrium. Marine Chemistry 70:105-119.
+
+Perez F. F. \& Fraga F., 1987. Association constant of fluoride and hydrogen ions in seawater. Marine Chemistry 21:161-168.
